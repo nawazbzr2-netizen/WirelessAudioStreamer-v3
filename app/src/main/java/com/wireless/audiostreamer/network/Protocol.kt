@@ -5,12 +5,13 @@ import com.wireless.audiostreamer.audio.AdpcmCodec
 object Protocol {
     const val PORT_DISCOVERY = 45454
     const val PORT_AUDIO = 45455
+    const val PORT_FILE = 45456
+    const val PORT_CAMERA = 45457
     const val T_AUDIO = 1
     const val T_HELLO = 2
     const val T_CAMERA = 3
     const val T_FILE = 4
 
-    // Feature stream kinds (carried in app layer / service extra)
     const val STREAM_SYSTEM = "SYSTEM"
     const val STREAM_MIC = "MIC"
     const val STREAM_CAMERA_FRONT = "CAM_FRONT"
@@ -18,11 +19,10 @@ object Protocol {
     const val STREAM_STORAGE = "STORAGE"
     const val STREAM_COMBO = "COMBO"
     const val SAMPLE_RATE = 48000
-    const val SAMPLES = 960 // 20 ms @ 48 kHz, per channel
+    const val SAMPLES = 960
 
     class Audio(val channels: Int, val pcm: ShortArray)
 
-    /** pcm = interleaved samples, size SAMPLES * channels. */
     fun buildAudioPlain(pcm: ShortArray, channels: Int): ByteArray {
         val block = AdpcmCodec.blockSize(SAMPLES)
         val out = ByteArray(3 + channels * block)
@@ -54,7 +54,6 @@ object Protocol {
     fun helloPlain(name: String, role: String): ByteArray =
         "$name\n$role".toByteArray(Charsets.UTF_8)
 
-    /** Returns (name, role) or null. */
     fun parseHello(b: ByteArray): Pair<String, String>? {
         val s = String(b, Charsets.UTF_8)
         val i = s.lastIndexOf('\n')
