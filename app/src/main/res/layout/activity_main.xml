@@ -12,7 +12,6 @@
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
         android:background="?attr/colorSurface"
-        android:theme="@style/ThemeOverlay.Material3.Toolbar.Surface"
         app:title="@string/app_name" />
 
     <ScrollView
@@ -25,296 +24,198 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingStart="16dp"
-            android:paddingEnd="16dp"
-            android:paddingBottom="24dp">
+            android:padding="16dp">
 
-            <TextView
-                android:id="@+id/tvRole"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textColor="?attr/colorOnSurface"
-                android:textSize="16sp" />
+            <TextView android:id="@+id/tvRole" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:textSize="16sp" />
+            <TextView android:id="@+id/tvStatus" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:layout_marginTop="6dp"
+                android:textSize="18sp" android:textStyle="bold" />
+            <TextView android:id="@+id/tvMyInfo" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:layout_marginTop="4dp"
+                android:textSize="13sp" android:textColor="?attr/colorOnSurfaceVariant" />
+            <TextView android:id="@+id/tvFeature" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:layout_marginTop="6dp"
+                android:textSize="14sp" android:textStyle="bold" android:textColor="?attr/colorPrimary" />
 
-            <TextView
-                android:id="@+id/tvStatus"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:textSize="18sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/tvMyInfo"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:textColor="?attr/colorOnSurfaceVariant"
-                android:textSize="13sp" />
-
-            <TextView
-                android:id="@+id/tvFeature"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:textColor="?attr/colorPrimary"
-                android:textSize="14sp"
-                android:textStyle="bold" />
-
-            <!-- ===== Feature buttons ===== -->
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:text="@string/feat_section_title"
-                android:textColor="?attr/colorOnSurface"
-                android:textSize="15sp"
-                android:textStyle="bold" />
-
-            <!-- Mic -->
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:text="@string/feat_mic"
-                android:textSize="13sp"
-                android:textColor="?attr/colorOnSurfaceVariant" />
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="16dp" android:text="@string/feat_mic"
+                android:textStyle="bold" android:textSize="15sp" />
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:orientation="horizontal">
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnMicSend"
+                <com.google.android.material.button.MaterialButton android:id="@+id/btnMicSend"
                     style="@style/Widget.Material3.Button.TonalButton"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:layout_marginEnd="4dp"
-                    android:text="@string/btn_mic_send" />
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnMicRecv"
+                    android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:layout_marginEnd="4dp" android:text="@string/btn_send" />
+                <com.google.android.material.button.MaterialButton android:id="@+id/btnMicRecv"
                     style="@style/Widget.Material3.Button.TonalButton"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:layout_marginStart="4dp"
-                    android:text="@string/btn_mic_recv" />
+                    android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:layout_marginEnd="4dp" android:text="@string/btn_recv" />
+                <com.google.android.material.button.MaterialButton android:id="@+id/btnMicStop"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:text="@string/btn_stop" />
+            </LinearLayout>
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="horizontal" android:layout_marginTop="4dp">
+                <com.google.android.material.button.MaterialButton android:id="@+id/btnMicRecord"
+                    style="@style/Widget.Material3.Button.TonalButton"
+                    android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:layout_marginEnd="4dp" android:text="@string/btn_mic_record" />
+                <com.google.android.material.button.MaterialButton android:id="@+id/btnMicRecordStop"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:text="@string/btn_stop_record" />
             </LinearLayout>
 
-            <!-- Front camera -->
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:text="@string/feat_cam_front"
-                android:textSize="13sp"
-                android:textColor="?attr/colorOnSurfaceVariant" />
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="16dp" android:text="@string/feat_camera"
+                android:textStyle="bold" android:textSize="15sp" />
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:orientation="horizontal">
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnCamFrontSend"
+                <com.google.android.material.button.MaterialButton android:id="@+id/btnCamSend"
                     style="@style/Widget.Material3.Button.TonalButton"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:layout_marginEnd="4dp"
-                    android:text="@string/btn_cam_front_send" />
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnCamFrontRecv"
+                    android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:layout_marginEnd="4dp" android:text="@string/btn_send" />
+                <com.google.android.material.button.MaterialButton android:id="@+id/btnCamRecv"
                     style="@style/Widget.Material3.Button.TonalButton"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:layout_marginStart="4dp"
-                    android:text="@string/btn_cam_front_recv" />
+                    android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:layout_marginEnd="4dp" android:text="@string/btn_recv" />
+                <com.google.android.material.button.MaterialButton android:id="@+id/btnCamStop"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:text="@string/btn_stop" />
+            </LinearLayout>
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="horizontal" android:layout_marginTop="4dp">
+                <com.google.android.material.button.MaterialButton android:id="@+id/btnCamPhoto"
+                    style="@style/Widget.Material3.Button.TonalButton"
+                    android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:layout_marginEnd="4dp" android:text="@string/btn_photo" />
+                <com.google.android.material.button.MaterialButton android:id="@+id/btnCamVideo"
+                    style="@style/Widget.Material3.Button.TonalButton"
+                    android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:layout_marginEnd="4dp" android:text="@string/btn_video" />
+                <com.google.android.material.button.MaterialButton android:id="@+id/btnCamVideoStop"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:text="@string/btn_stop_video" />
+            </LinearLayout>
+            <ImageView android:id="@+id/imgCamera" android:layout_width="match_parent"
+                android:layout_height="180dp" android:layout_marginTop="8dp"
+                android:scaleType="centerCrop" android:background="#22000000"
+                android:contentDescription="@string/feat_camera" android:visibility="gone" />
+
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="16dp" android:text="@string/feat_storage"
+                android:textStyle="bold" android:textSize="15sp" />
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="horizontal">
+                <com.google.android.material.button.MaterialButton android:id="@+id/btnStorageSend"
+                    style="@style/Widget.Material3.Button.TonalButton"
+                    android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:layout_marginEnd="4dp" android:text="@string/btn_open_storage" />
+                <com.google.android.material.button.MaterialButton android:id="@+id/btnStorageRecv"
+                    style="@style/Widget.Material3.Button.TonalButton"
+                    android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:layout_marginEnd="4dp" android:text="@string/btn_recv" />
+                <com.google.android.material.button.MaterialButton android:id="@+id/btnStorageStop"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:text="@string/btn_stop" />
+            </LinearLayout>
+            <LinearLayout android:id="@+id/storageList" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:orientation="vertical" android:layout_marginTop="8dp" />
+
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="16dp" android:text="@string/feat_system"
+                android:textStyle="bold" android:textSize="15sp" />
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="horizontal">
+                <com.google.android.material.button.MaterialButton android:id="@+id/btnSysSend"
+                    style="@style/Widget.Material3.Button.TonalButton"
+                    android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:layout_marginEnd="4dp" android:text="@string/btn_send" />
+                <com.google.android.material.button.MaterialButton android:id="@+id/btnSysRecv"
+                    style="@style/Widget.Material3.Button.TonalButton"
+                    android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:layout_marginEnd="4dp" android:text="@string/btn_recv" />
+                <com.google.android.material.button.MaterialButton android:id="@+id/btnSysStop"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:text="@string/btn_stop" />
             </LinearLayout>
 
-            <!-- Storage -->
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:text="@string/feat_storage"
-                android:textSize="13sp"
-                android:textColor="?attr/colorOnSurfaceVariant" />
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="16dp" android:text="@string/feat_sys_mic"
+                android:textStyle="bold" android:textSize="15sp" />
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:orientation="horizontal">
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnStorageSend"
+                <com.google.android.material.button.MaterialButton android:id="@+id/btnSysMicSend"
                     style="@style/Widget.Material3.Button.TonalButton"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:layout_marginEnd="4dp"
-                    android:text="@string/btn_storage_send" />
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnStorageRecv"
+                    android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:layout_marginEnd="4dp" android:text="@string/btn_send" />
+                <com.google.android.material.button.MaterialButton android:id="@+id/btnSysMicRecv"
                     style="@style/Widget.Material3.Button.TonalButton"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:layout_marginStart="4dp"
-                    android:text="@string/btn_storage_recv" />
+                    android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:layout_marginEnd="4dp" android:text="@string/btn_recv" />
+                <com.google.android.material.button.MaterialButton android:id="@+id/btnSysMicStop"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:text="@string/btn_stop" />
             </LinearLayout>
-
-            <!-- System sound -->
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:text="@string/feat_system"
-                android:textSize="13sp"
-                android:textColor="?attr/colorOnSurfaceVariant" />
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal">
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnSysSend"
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="horizontal" android:layout_marginTop="4dp">
+                <com.google.android.material.button.MaterialButton android:id="@+id/btnVoiceRecord"
                     style="@style/Widget.Material3.Button.TonalButton"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:layout_marginEnd="4dp"
-                    android:text="@string/btn_sys_send" />
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnSysRecv"
-                    style="@style/Widget.Material3.Button.TonalButton"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:layout_marginStart="4dp"
-                    android:text="@string/btn_sys_recv" />
-            </LinearLayout>
-
-            <!-- Combo: mic + camera + storage -->
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:text="@string/feat_combo"
-                android:textSize="13sp"
-                android:textColor="?attr/colorOnSurfaceVariant" />
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal">
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnComboSend"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:layout_marginEnd="4dp"
-                    android:text="@string/btn_combo_send" />
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnComboRecv"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:layout_marginStart="4dp"
-                    android:text="@string/btn_combo_recv" />
+                    android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:layout_marginEnd="4dp" android:text="@string/btn_voice_record" />
+                <com.google.android.material.button.MaterialButton android:id="@+id/btnVoiceRecordStop"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:text="@string/btn_stop_record" />
             </LinearLayout>
 
             <com.google.android.material.tabs.TabLayout
-                android:id="@+id/tabLayout"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="20dp" />
+                android:id="@+id/tabLayout" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:layout_marginTop="20dp" />
 
-            <LinearLayout
-                android:id="@+id/panelWifi"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical">
-                <TextView
-                    android:id="@+id/tvNoPeers"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:textColor="?attr/colorOnSurfaceVariant"
-                    android:textSize="14sp" />
-                <LinearLayout
-                    android:id="@+id/peerList"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical" />
+            <LinearLayout android:id="@+id/panelWifi" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:orientation="vertical">
+                <TextView android:id="@+id/tvNoPeers" android:layout_width="match_parent"
+                    android:layout_height="wrap_content" android:layout_marginTop="8dp"
+                    android:textSize="14sp" android:textColor="?attr/colorOnSurfaceVariant" />
+                <LinearLayout android:id="@+id/peerList" android:layout_width="match_parent"
+                    android:layout_height="wrap_content" android:orientation="vertical" />
             </LinearLayout>
 
-            <LinearLayout
-                android:id="@+id/panelBluetooth"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:visibility="gone">
-                <LinearLayout
-                    android:id="@+id/btBar"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:layout_marginTop="8dp">
-                    <Button
-                        android:id="@+id/btnRefreshBt"
-                        style="@style/Widget.Material3.Button.TonalButton"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_marginEnd="4dp"
-                        android:layout_weight="1"
-                        android:text="@string/refresh" />
-                    <Button
-                        android:id="@+id/btnBtSettings"
-                        style="@style/Widget.Material3.Button.TonalButton"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="4dp"
-                        android:layout_weight="1"
-                        android:text="@string/bt_settings" />
+            <LinearLayout android:id="@+id/panelBluetooth" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone">
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="horizontal" android:layout_marginTop="8dp">
+                    <Button android:id="@+id/btnRefreshBt" style="@style/Widget.Material3.Button.TonalButton"
+                        android:layout_width="0dp" android:layout_height="wrap_content"
+                        android:layout_weight="1" android:layout_marginEnd="4dp" android:text="@string/refresh" />
+                    <Button android:id="@+id/btnBtSettings" style="@style/Widget.Material3.Button.TonalButton"
+                        android:layout_width="0dp" android:layout_height="wrap_content"
+                        android:layout_weight="1" android:layout_marginStart="4dp" android:text="@string/bt_settings" />
                 </LinearLayout>
-                <TextView
-                    android:id="@+id/tvNoBt"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:textColor="?attr/colorOnSurfaceVariant"
-                    android:textSize="14sp" />
-                <LinearLayout
-                    android:id="@+id/btList"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical" />
+                <TextView android:id="@+id/tvNoBt" android:layout_width="match_parent"
+                    android:layout_height="wrap_content" android:layout_marginTop="12dp"
+                    android:textSize="14sp" android:textColor="?attr/colorOnSurfaceVariant" />
+                <LinearLayout android:id="@+id/btList" android:layout_width="match_parent"
+                    android:layout_height="wrap_content" android:orientation="vertical" />
             </LinearLayout>
 
-            <Button
-                android:id="@+id/btnStartListen"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:visibility="gone" />
+            <Button android:id="@+id/btnStartListen" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:layout_marginTop="16dp" android:visibility="gone" />
+            <Button android:id="@+id/btnDisconnect" style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="16dp" android:text="@string/disconnect" android:visibility="gone" />
 
-            <Button
-                android:id="@+id/btnDisconnect"
-                style="@style/Widget.Material3.Button.OutlinedButton"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:text="@string/disconnect"
-                android:visibility="gone" />
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="24dp"
-                android:text="@string/volume"
-                android:textColor="?attr/colorOnSurface"
-                android:textSize="14sp" />
-
-            <SeekBar
-                android:id="@+id/seekVolume"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="24dp" android:text="@string/volume" android:textSize="14sp" />
+            <SeekBar android:id="@+id/seekVolume" android:layout_width="match_parent" android:layout_height="wrap_content" />
         </LinearLayout>
     </ScrollView>
 </LinearLayout>
