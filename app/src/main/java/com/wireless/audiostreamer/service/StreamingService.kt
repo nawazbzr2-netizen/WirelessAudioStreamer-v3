@@ -232,6 +232,11 @@ class StreamingService : Service() {
             }
             bt = BluetoothTransport(adapter).also { it.startClient(adapter.getRemoteDevice(btAddr), btListener) }
         }
+        // Hard guarantee: system / combo never touch the microphone path
+        if (streamType == Protocol.STREAM_SYSTEM || streamType == Protocol.STREAM_COMBO) {
+            try { micCapturer?.stop() } catch (_: Exception) {}
+            micCapturer = null
+        }
         when (streamType) {
             Protocol.STREAM_MIC -> {
                 val mic = MicCapturer(channels) { pcm -> onCaptured(pcm) }
