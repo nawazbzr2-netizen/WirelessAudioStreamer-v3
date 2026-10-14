@@ -34,6 +34,7 @@ import com.google.android.material.button.MaterialButton
 import com.google.android.material.tabs.TabLayout
 import com.wireless.audiostreamer.R
 import com.wireless.audiostreamer.audio.MicRecorder
+import com.wireless.audiostreamer.audio.ReceiverVideoWriter
 import com.wireless.audiostreamer.network.DiscoveryHelper
 import com.wireless.audiostreamer.network.FileTransfer
 import com.wireless.audiostreamer.network.NetUtil
@@ -69,6 +70,7 @@ class MainActivity : BaseActivity() {
     private var pendingBtAddr: String? = null
     private var micRecorder: MicRecorder? = null
     private var voiceRecorder: MicRecorder? = null
+    private var videoWriter: ReceiverVideoWriter? = null
     private var senderPermsOk = false
 
     private val ui = Handler(Looper.getMainLooper())
@@ -106,6 +108,7 @@ class MainActivity : BaseActivity() {
     private val cameraReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             val jpeg = intent?.getByteArrayExtra("jpeg") ?: return
+            videoWriter?.writeJpeg(jpeg)
             val bmp = BitmapFactory.decodeByteArray(jpeg, 0, jpeg.size) ?: return
             ui.post { imgCamera.visibility = View.VISIBLE; imgCamera.setImageBitmap(bmp) }
         }
@@ -163,8 +166,8 @@ class MainActivity : BaseActivity() {
             stopFeature(); imgCamera.visibility = View.GONE
         }
         findViewById<Button>(R.id.btnCamPhoto).setOnClickListener { takePhoto() }
-        findViewById<Button>(R.id.btnCamVideo).setOnClickListener { toast(R.string.recording) }
-        findViewById<Button>(R.id.btnCamVideoStop).setOnClickListener { }
+        findViewById<Button>(R.id.btnCamVideo).setOnClickListener { startVideoRecord() }
+        findViewById<Button>(R.id.btnCamVideoStop).setOnClickListener { stopVideoRecord() }
 
         findViewById<Button>(R.id.btnCamFrontRecv).setOnClickListener {
             openFeature(Protocol.STREAM_CAMERA_FRONT); imgCamera.visibility = View.VISIBLE
@@ -355,7 +358,6 @@ class MainActivity : BaseActivity() {
                 startSenderAfterPerms(StreamingService.MODE_BT, null, d.address, selectedStream)
             }
         }
-        // Auto BT if single paired device and sender ready
         if (!running && senderPermsOk && devices != null && devices.size == 1) {
             val d = devices.first()
             pendingBtAddr = d.address
@@ -478,7 +480,7 @@ class MainActivity : BaseActivity() {
 
     private fun startSender(mode: String, peerIp: String?, btAddr: String?, stream: String) {
         selectedStream = stream
-        if (stream == Protocol.STREAM_SYSTEM) {
+        if (stream == Protocol.STREAM_SYSTEM || stream == Protocol.STREAM_COMBO) {
             startReq = StartReq(mode, peerIp, btAddr)
             projLauncher.launch(getSystemService(MediaProjectionManager::class.java).createScreenCaptureIntent())
         } else launchService(mode, peerIp, btAddr, 0, null)
@@ -526,6 +528,22 @@ class MainActivity : BaseActivity() {
         if (path != null) Toast.makeText(this, getString(R.string.saved_ok, path), Toast.LENGTH_LONG).show()
     }
 
+    private fun startVideoRecord() {
+        if (videoWriter?.isRecording == true) return
+        val w = ReceiverVideoWriter(this)
+        val path = w.start()
+        if (path != null) {
+            videoWriter = w
+            toast(R.string.recording)
+        } else toast(R.string.status_capture_failed)
+    }
+
+    private fun stopVideoRecord() {
+        val path = videoWriter?.stop()
+        videoWriter = null
+        if (path != null) Toast.makeText(this, getString(R.string.saved_ok, path), Toast.LENGTH_LONG).show()
+    }
+
     private fun takePhoto() {
         imgCamera.isDrawingCacheEnabled = true; imgCamera.buildDrawingCache()
         val bmp = try { imgCamera.drawingCache } catch (_: Exception) { null }
@@ -543,7 +561,10 @@ class MainActivity : BaseActivity() {
         val localFiles = dir.listFiles()?.filter { it.isFile }?.sortedBy { it.name } ?: emptyList()
         for (f in localFiles) addStorageRow(list, f.name, false, null)
         val host = pendingPeerIp
+            ?: peers.firstOrNull { it.role == AppPrefs.ROLE_SENDER }?.ip
+            ?: StreamingService.lastFromIp.takeIf { it.isNotBlank() && it != "Bluetooth" && it != "OK" }
         if (!host.isNullOrBlank()) {
+            pendingPeerIp = host
             thread(isDaemon = true) {
                 try {
                     val remote = FileTransfer.listRemote(host!!)
@@ -575,7 +596,7 @@ class MainActivity : BaseActivity() {
                 it.text = getString(R.string.file_download)
                 it.setOnClickListener {
                     thread(isDaemon = true) {
-                        val dest = File(FileTransfer.listDir(this), name)
+                        val dest = File(FileTransfer.listDir(this), name.substringAfterLast('/'))
                         val ok = try { FileTransfer.download(host, name, dest) } catch (_: Exception) { false }
                         ui.post {
                             if (ok) Toast.makeText(this, getString(R.string.saved_ok, dest.absolutePath), Toast.LENGTH_LONG).show()
