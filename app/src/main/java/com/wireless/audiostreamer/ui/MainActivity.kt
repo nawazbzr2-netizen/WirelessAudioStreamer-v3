@@ -278,7 +278,12 @@ class MainActivity : BaseActivity() {
         btnDisconnect.visibility = if (run) View.VISIBLE else View.GONE
         btnStartListen.visibility = if (!isSender() && !run) View.VISIBLE else View.GONE
         btnSenderReady.visibility = if (isSender() && !run) View.VISIBLE else View.GONE
-        if (run) stopDiscovery() else if (resumed) startDiscovery()
+        if (run) stopDiscovery() else if (resumed) {
+            startDiscovery()
+            if (isSender() && senderPermsOk) {
+                ui.postDelayed({ tryAutoReconnectRecent() }, 1500)
+            }
+        }
     }
 
     private fun prepareSenderAllPerms() {
@@ -288,6 +293,7 @@ class MainActivity : BaseActivity() {
             toast(R.string.sender_ready_ok)
             startDiscovery()
             updateUi()
+            ui.postDelayed({ tryAutoReconnectRecent() }, 2000)
         }
     }
 
@@ -331,10 +337,15 @@ class MainActivity : BaseActivity() {
             }
         }
         if (!running && senderPermsOk) {
-            val want = list.firstOrNull { it.stream.isNotBlank() } ?: list.firstOrNull()
+            val lastIp = AppPrefs.lastPeerIp(this)
+            val last = if (lastIp.isNotBlank()) list.firstOrNull { it.ip == lastIp } else null
+            val want = last ?: list.firstOrNull { it.stream.isNotBlank() } ?: list.firstOrNull()
             if (want != null) {
                 pendingPeerIp = want.ip
-                connectWithFallback(want.stream.ifBlank { selectedStream }, want.ip)
+                val stream = want.stream.ifBlank { AppPrefs.lastStream(this).ifBlank { selectedStream } }
+                connectWithFallback(stream, want.ip)
+            } else {
+                tryAutoReconnectRecent()
             }
         }
     }
@@ -493,6 +504,7 @@ class MainActivity : BaseActivity() {
     }
 
     private fun launchService(mode: String, peerIp: String?, btAddr: String?, code: Int, data: Intent?) {
+        AppPrefs.saveRecentConnection(this, mode, peerIp, btAddr, selectedStream)
         val i = Intent(this, StreamingService::class.java).setAction(StreamingService.ACTION_START)
             .putExtra(StreamingService.EXTRA_ROLE, AppPrefs.role(this))
             .putExtra(StreamingService.EXTRA_MODE, mode)
@@ -623,6 +635,27 @@ class MainActivity : BaseActivity() {
             })
         }
         list.addView(row)
+    }
+
+    /** Reconnect to the last successful peer when it appears on the network. */
+    private fun tryAutoReconnectRecent() {
+        if (running || !isSender() || !senderPermsOk) return
+        val mode = AppPrefs.lastMode(this)
+        val ip = AppPrefs.lastPeerIp(this)
+        val bt = AppPrefs.lastBtAddr(this)
+        val stream = AppPrefs.lastStream(this).ifBlank { selectedStream }
+        if (mode == StreamingService.MODE_WIFI || mode == StreamingService.MODE_INTERNET) {
+            if (ip.isBlank()) return
+            val visible = peers.any { it.ip == ip } || NetUtil.isPrivateIp(ip) || mode == StreamingService.MODE_INTERNET
+            if (!visible) return
+            pendingPeerIp = ip
+            selectedStream = stream
+            startSenderAfterPerms(mode, ip, null, stream)
+        } else if (mode == StreamingService.MODE_BT && bt.isNotBlank()) {
+            pendingBtAddr = bt
+            selectedStream = stream
+            startSenderAfterPerms(StreamingService.MODE_BT, null, bt, stream)
+        }
     }
 
     private fun streamLabel(stream: String): String = when (stream) {
