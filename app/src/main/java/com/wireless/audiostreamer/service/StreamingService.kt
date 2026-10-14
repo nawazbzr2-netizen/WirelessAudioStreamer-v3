@@ -79,6 +79,7 @@ class StreamingService : Service() {
         @Volatile var lastConnected = false
         @Volatile var lastError = false
         @Volatile var lastText = ""
+        @Volatile var lastFromIp = ""
     }
 
     private val main = Handler(Looper.getMainLooper())
@@ -162,7 +163,7 @@ class StreamingService : Service() {
         val type = when {
             streamType == Protocol.STREAM_CAMERA_BACK || streamType == Protocol.STREAM_CAMERA_FRONT ->
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA or ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
-            role == AppPrefs.ROLE_SENDER && streamType == Protocol.STREAM_SYSTEM ->
+            role == AppPrefs.ROLE_SENDER && (streamType == Protocol.STREAM_SYSTEM || streamType == Protocol.STREAM_COMBO) ->
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
             role == AppPrefs.ROLE_SENDER ->
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
@@ -197,7 +198,7 @@ class StreamingService : Service() {
         channels = AppPrefs.channels(this)
         session = SecureRandom().nextLong()
         seq = 0
-        val needsProjection = streamType == Protocol.STREAM_SYSTEM
+        val needsProjection = streamType == Protocol.STREAM_SYSTEM || streamType == Protocol.STREAM_COMBO
         if (needsProjection) {
             val code = intent.getIntExtra(EXTRA_RESULT_CODE, 0)
             val data = IntentCompat.getParcelableExtra(intent, EXTRA_RESULT_DATA, Intent::class.java)
@@ -238,9 +239,11 @@ class StreamingService : Service() {
                 if (!mic.start()) { stopEverything(getString(R.string.status_capture_failed), true); return false }
             }
             Protocol.STREAM_COMBO -> {
-                val mic = MicCapturer(channels) { pcm -> onCaptured(pcm) }
-                micCapturer = mic
-                if (!mic.start()) { stopEverything(getString(R.string.status_capture_failed), true); return false }
+                val proj = projection
+                if (proj == null) { stopEverything(getString(R.string.status_capture_failed), true); return false }
+                val cap = SystemAudioCapturer(proj, channels) { pcm -> onCaptured(pcm) }
+                capturer = cap
+                if (!cap.start()) { stopEverything(getString(R.string.status_capture_failed), true); return false }
             }
             Protocol.STREAM_CAMERA_FRONT, Protocol.STREAM_CAMERA_BACK -> startCameraSend()
             Protocol.STREAM_STORAGE -> { fileServerThread = FileTransfer.startServer(this) }
@@ -306,7 +309,8 @@ class StreamingService : Service() {
     }
 
     private fun startCameraSend() {
-        val cam = CameraStreamer(this) { jpeg -> sendCameraFrame(jpeg) }
+        val useFront = streamType == Protocol.STREAM_CAMERA_FRONT
+        val cam = CameraStreamer(this, useFront) { jpeg -> sendCameraFrame(jpeg) }
         cameraStreamer = cam
         if (!cam.start()) stopEverything(getString(R.string.status_capture_failed), true)
     }
@@ -393,6 +397,7 @@ class StreamingService : Service() {
         jb.put(o.seq, audio.pcm)
         lastAudioMs = System.currentTimeMillis()
         lastFrom = fromIp ?: "Bluetooth"
+        lastFromIp = lastFrom
         authFail = 0
     }
 
@@ -417,8 +422,8 @@ class StreamingService : Service() {
             } else getString(if (hadPeer) R.string.status_peer_lost else R.string.status_waiting_peer)
         } else {
             connected = System.currentTimeMillis() - lastAudioMs < AUDIO_TIMEOUT_MS ||
-                streamType == Protocol.STREAM_CAMERA_BACK || streamType == Protocol.STREAM_STORAGE ||
-                mode == MODE_INTERNET
+                streamType == Protocol.STREAM_CAMERA_BACK || streamType == Protocol.STREAM_CAMERA_FRONT ||
+                streamType == Protocol.STREAM_STORAGE || mode == MODE_INTERNET
             text = when {
                 connected -> getString(R.string.status_connected, lastFrom.ifBlank { "OK" })
                 authFail >= 15 -> getString(R.string.status_wrong_pin)
