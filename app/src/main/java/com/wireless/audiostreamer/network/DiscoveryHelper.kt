@@ -17,7 +17,6 @@ class DiscoveryHelper(ctx: Context, private val cipher: PacketCipher) {
 
     private val out = UdpOut(ctx)
     private val peers = ConcurrentHashMap<String, Peer>()
-    private val unicast = ConcurrentHashMap<String, Long>()
     private val session = SecureRandom().nextLong()
     private var seq = 0
     @Volatile private var running = false
@@ -100,20 +99,20 @@ class DiscoveryHelper(ctx: Context, private val cipher: PacketCipher) {
                 val frame = cipher.seal(Protocol.T_HELLO, session, seq++, Protocol.helloPlain(name, role, streamReq))
                 val targets = ArrayList<InetAddress>()
                 try { targets.add(InetAddress.getByName("255.255.255.255")) } catch (_: Exception) { }
-                for (ip in NetUtil.broadcastIps()) {
-                    try { targets.add(InetAddress.getByName(ip)) } catch (_: Exception) { }
+                for (b in NetUtil.broadcastAddresses()) {
+                    targets.add(b)
                 }
                 if (manualIp.isNotBlank()) {
                     try { targets.add(InetAddress.getByName(manualIp)) } catch (_: Exception) { }
                 }
                 for (t in targets) out.send(frame, frame.size, t, Protocol.PORT_DISCOVERY)
+
                 val now = System.currentTimeMillis()
                 var changed = false
-                for ((ip, p) in peers) {
-                    if (now - p.seen > 7000) {
-                        peers.remove(ip)
-                        changed = true
-                    }
+                val stale = peers.entries.filter { now - it.value.seen > 7000 }.map { it.key }
+                for (ip in stale) {
+                    peers.remove(ip)
+                    changed = true
                 }
                 if (changed) notifyPeers()
                 Thread.sleep(2000)
