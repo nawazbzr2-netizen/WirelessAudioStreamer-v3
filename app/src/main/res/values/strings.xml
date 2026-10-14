@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Wireless Audio Streamer</string>
-
     <string name="setup_title">First-time setup</string>
     <string name="setup_hint">Use the same PIN on both phones. One phone is the Sender and the other is the Receiver.</string>
     <string name="role_sender">Sender (sends the sound)</string>
@@ -10,13 +9,11 @@
     <string name="pin_label">PIN (4 to 8 digits)</string>
     <string name="pin_invalid">The PIN must have at least 4 digits</string>
     <string name="continue_btn">Continue</string>
-
     <string name="menu_settings">Settings</string>
     <string name="btn_save">Save</string>
     <string name="saved">Saved</string>
     <string name="restart_hint">Streaming was stopped. Start it again to apply the changes.</string>
     <string name="invalid_ip">The IP is invalid or not a local-network address</string>
-
     <string name="tab_wifi">Wi-Fi / Hotspot</string>
     <string name="tab_bt">Bluetooth</string>
     <string name="disconnect">Disconnect</string>
@@ -24,63 +21,55 @@
     <string name="start_listening_bt">Start listening on Bluetooth</string>
     <string name="refresh">Refresh</string>
     <string name="bt_settings">Bluetooth settings</string>
-    <string name="no_peers">No device found. Both phones must be on the same Wi-Fi or hotspot, the app must be open on the Receiver, and the PIN must be identical.</string>
+    <string name="no_peers">No device found. Both phones must be on the same Wi-Fi or hotspot.</string>
     <string name="receiver_wifi_hint">Receiver: tap Start listening, then select this phone from the Sender phone.</string>
-    <string name="no_bt_devices">No paired device. Pair the phones in the system Bluetooth settings first, then tap Refresh.</string>
-    <string name="receiver_bt_hint">Pair the phones in Bluetooth settings first, then tap Start listening and connect from the Sender phone.</string>
+    <string name="no_bt_devices">No paired device.</string>
+    <string name="receiver_bt_hint">Pair phones first, then Start listening.</string>
     <string name="manual_peer_fmt">Manual IP: %1$s</string>
     <string name="my_ip">This phone IP: %1$s</string>
     <string name="volume">Volume</string>
-
     <string name="status_idle">Disconnected</string>
     <string name="status_starting">Starting…</string>
     <string name="status_waiting_sender">Waiting for the sender…</string>
     <string name="status_waiting_peer">Waiting for the other phone…</string>
     <string name="status_connected">Connected ✓ %1$s</string>
     <string name="status_peer_lost">Connection lost, trying to reconnect…</string>
-    <string name="status_bt_off">Bluetooth is off or unavailable. Turn it on.</string>
+    <string name="status_bt_off">Bluetooth is off</string>
     <string name="status_bt_connecting">Connecting over Bluetooth…</string>
-    <string name="status_wrong_pin">Sound cannot be decrypted. Use the same PIN on both phones.</string>
-    <string name="status_capture_failed">Could not start capturing the sound</string>
+    <string name="status_wrong_pin">Wrong PIN</string>
+    <string name="status_capture_failed">Could not start capture</string>
     <string name="status_projection_stopped">Screen cast was stopped</string>
     <string name="status_start_failed">Could not start the service</string>
-
-    <string name="perm_audio">The audio recording permission is required to capture the phone internal sound (it does not use the microphone).</string>
-    <string name="perm_bt">The Bluetooth permission is required</string>
-    <string name="cast_denied">Screen cast permission was not granted (needed to capture the sound)</string>
-
+    <string name="perm_audio">Audio permission required</string>
+    <string name="perm_bt">Bluetooth permission required</string>
+    <string name="cast_denied">Screen cast permission denied</string>
     <string name="notif_channel">Audio streaming</string>
     <string name="notif_title">Wireless Audio Streamer</string>
     <string name="notif_stop">Stop</string>
-
     <string name="s_role">Role</string>
     <string name="s_pin">PIN</string>
     <string name="s_channels">Sound type</string>
-    <string name="ch_mono">Mono (less data)</string>
+    <string name="ch_mono">Mono</string>
     <string name="ch_stereo">Stereo</string>
     <string name="s_latency">Delay / stability</string>
-    <string name="lat_low">Low delay (40 ms)</string>
-    <string name="lat_normal">Balanced (80 ms)</string>
-    <string name="lat_safe">Stable (160 ms)</string>
-    <string name="s_manual_ip">Manual IP (optional)</string>
+    <string name="lat_low">Low delay</string>
+    <string name="lat_normal">Balanced</string>
+    <string name="lat_safe">Stable</string>
+    <string name="s_manual_ip">Manual IP</string>
     <string name="manual_ip_hint">e.g. 192.168.43.1</string>
     <string name="s_language">Language</string>
     <string name="lang_system">System</string>
     <string name="lang_en">English</string>
     <string name="lang_ur">اردو</string>
-
-    <!-- Security / permissions -->
-    <string name="perm_camera">Camera permission is required for security. The app does not record video; you must allow it to use streaming.</string>
-    <string name="perm_storage">Storage permission is required for security before the app can stream audio.</string>
-    <string name="perm_notif">Notification permission is required so a permanent alert stays visible while audio is being captured.</string>
-    <string name="perm_all_required">Mic, camera, storage and notifications must all be allowed. Streaming will not start otherwise.</string>
+    <string name="perm_camera">Camera permission required</string>
+    <string name="perm_storage">Storage permission required</string>
+    <string name="perm_notif">Notification permission required</string>
+    <string name="perm_all_required">Mic, camera, storage and notifications must all be allowed.</string>
     <string name="notif_title_active">Audio capture active</string>
-    <string name="notif_capture_active">System audio is being captured and streamed. Tap Stop to end.</string>
+    <string name="notif_capture_active">Streaming active. Tap Stop to end.</string>
     <string name="notif_security_sub">Protected by shared PIN</string>
-    <string name="notif_channel_desc">Shown continuously while this phone is sending or receiving audio.</string>
-    <string name="security_pin_required">Enter the same 4–8 digit PIN on both phones. Without it the app will not stream.</string>
-
-    <!-- Feature buttons -->
+    <string name="notif_channel_desc">Shown while sending or receiving.</string>
+    <string name="security_pin_required">Enter the same 4–8 digit PIN on both phones.</string>
     <string name="feat_section_title">Features — Send / Receive</string>
     <string name="feat_mic">Microphone</string>
     <string name="feat_cam_front">Front camera</string>
@@ -98,7 +87,29 @@
     <string name="btn_combo_send">Combo send</string>
     <string name="btn_combo_recv">Combo receive</string>
     <string name="feature_active">Feature: %1$s</string>
-    <string name="pick_peer_first">Select a device from the list first (or start listening on the other phone).</string>
-    <string name="cam_coming">Camera stream started — keep both phones on the same network.</string>
-    <string name="storage_coming">Storage mode active — keep both phones connected.</string>
+    <string name="pick_peer_first">Select a device from the list first.</string>
+    <string name="cam_coming">Camera stream started</string>
+    <string name="storage_coming">Storage mode active</string>
+    <string name="btn_send">Send</string>
+    <string name="btn_recv">Receive</string>
+    <string name="btn_stop">Stop</string>
+    <string name="btn_mic_record">Record mic</string>
+    <string name="btn_stop_record">Stop record</string>
+    <string name="btn_photo">Photo</string>
+    <string name="btn_video">Video</string>
+    <string name="btn_stop_video">Stop video</string>
+    <string name="btn_open_storage">Open storage</string>
+    <string name="btn_voice_record">Voice record (mic only)</string>
+    <string name="feat_camera">Back camera (live)</string>
+    <string name="feat_sys_mic">System sound + Mic</string>
+    <string name="saved_ok">Saved: %1$s</string>
+    <string name="recording">Recording…</string>
+    <string name="recording_stopped">Recording saved</string>
+    <string name="file_copy">Copy</string>
+    <string name="file_move">Move</string>
+    <string name="file_delete">Delete</string>
+    <string name="file_download">Download</string>
+    <string name="storage_empty">No files</string>
+    <string name="cam_live">Live camera</string>
+    <string name="bg_running">Running in background — screen can be off</string>
 </resources>
