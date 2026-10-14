@@ -28,7 +28,6 @@ import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.widget.Toolbar
 import androidx.core.content.ContextCompat
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.tabs.TabLayout
@@ -59,14 +58,17 @@ class MainActivity : BaseActivity() {
     private lateinit var btList: LinearLayout
     private lateinit var btnStartListen: Button
     private lateinit var btnDisconnect: Button
+    private lateinit var btnSenderReady: Button
+    private lateinit var sectionFeatures: View
     private lateinit var seekVolume: SeekBar
     private lateinit var tvFeature: TextView
     private lateinit var imgCamera: ImageView
-    private var selectedStream = Protocol.STREAM_SYSTEM
+    private var selectedStream = Protocol.STREAM_MIC
     private var pendingPeerIp: String? = null
     private var pendingBtAddr: String? = null
     private var micRecorder: MicRecorder? = null
     private var voiceRecorder: MicRecorder? = null
+    private var senderPermsOk = false
 
     private val ui = Handler(Looper.getMainLooper())
     private var discovery: DiscoveryHelper? = null
@@ -87,7 +89,7 @@ class MainActivity : BaseActivity() {
             val p = pendingPerm; pendingPerm = null
             if (p != null) {
                 val bad = p.must.firstOrNull { !granted(it) }
-                if (bad == null) p.onOk() else toast(deniedMessage(bad))
+                if (bad == null) { senderPermsOk = true; p.onOk() } else toast(deniedMessage(bad))
             }
         }
 
@@ -104,10 +106,7 @@ class MainActivity : BaseActivity() {
         override fun onReceive(context: Context?, intent: Intent?) {
             val jpeg = intent?.getByteArrayExtra("jpeg") ?: return
             val bmp = BitmapFactory.decodeByteArray(jpeg, 0, jpeg.size) ?: return
-            ui.post {
-                imgCamera.visibility = View.VISIBLE
-                imgCamera.setImageBitmap(bmp)
-            }
+            ui.post { imgCamera.visibility = View.VISIBLE; imgCamera.setImageBitmap(bmp) }
         }
     }
 
@@ -145,43 +144,48 @@ class MainActivity : BaseActivity() {
         btList = findViewById(R.id.btList)
         btnStartListen = findViewById(R.id.btnStartListen)
         btnDisconnect = findViewById(R.id.btnDisconnect)
+        btnSenderReady = findViewById(R.id.btnSenderReady)
+        sectionFeatures = findViewById(R.id.sectionFeatures)
         seekVolume = findViewById(R.id.seekVolume)
         tvFeature = findViewById(R.id.tvFeature)
         imgCamera = findViewById(R.id.imgCamera)
 
-        findViewById<Button>(R.id.btnMicSend).setOnClickListener { startFeature(true, Protocol.STREAM_MIC) }
-        findViewById<Button>(R.id.btnMicRecv).setOnClickListener { startFeature(false, Protocol.STREAM_MIC) }
+        findViewById<Button>(R.id.btnMicRecv).setOnClickListener { openFeature(Protocol.STREAM_MIC) }
         findViewById<Button>(R.id.btnMicStop).setOnClickListener { stopFeature() }
         findViewById<Button>(R.id.btnMicRecord).setOnClickListener { startMicRecord() }
         findViewById<Button>(R.id.btnMicRecordStop).setOnClickListener { stopMicRecord() }
 
-        findViewById<Button>(R.id.btnCamSend).setOnClickListener { startFeature(true, Protocol.STREAM_CAMERA_BACK) }
         findViewById<Button>(R.id.btnCamRecv).setOnClickListener {
-            startFeature(false, Protocol.STREAM_CAMERA_BACK)
-            imgCamera.visibility = View.VISIBLE
+            openFeature(Protocol.STREAM_CAMERA_BACK); imgCamera.visibility = View.VISIBLE
         }
-        findViewById<Button>(R.id.btnCamStop).setOnClickListener { stopFeature(); imgCamera.visibility = View.GONE }
+        findViewById<Button>(R.id.btnCamStop).setOnClickListener {
+            stopFeature(); imgCamera.visibility = View.GONE
+        }
         findViewById<Button>(R.id.btnCamPhoto).setOnClickListener { takePhoto() }
         findViewById<Button>(R.id.btnCamVideo).setOnClickListener { toast(R.string.recording) }
         findViewById<Button>(R.id.btnCamVideoStop).setOnClickListener { }
 
-        findViewById<Button>(R.id.btnStorageSend).setOnClickListener {
-            startFeature(true, Protocol.STREAM_STORAGE); openStorageBrowser()
+        findViewById<Button>(R.id.btnCamFrontRecv).setOnClickListener {
+            openFeature(Protocol.STREAM_CAMERA_FRONT); imgCamera.visibility = View.VISIBLE
         }
+        findViewById<Button>(R.id.btnCamFrontStop).setOnClickListener {
+            stopFeature(); imgCamera.visibility = View.GONE
+        }
+
         findViewById<Button>(R.id.btnStorageRecv).setOnClickListener {
-            startFeature(false, Protocol.STREAM_STORAGE); openStorageBrowser()
+            openFeature(Protocol.STREAM_STORAGE); openStorageBrowser()
         }
         findViewById<Button>(R.id.btnStorageStop).setOnClickListener { stopFeature() }
 
-        findViewById<Button>(R.id.btnSysSend).setOnClickListener { startFeature(true, Protocol.STREAM_SYSTEM) }
-        findViewById<Button>(R.id.btnSysRecv).setOnClickListener { startFeature(false, Protocol.STREAM_SYSTEM) }
+        findViewById<Button>(R.id.btnSysRecv).setOnClickListener { openFeature(Protocol.STREAM_SYSTEM) }
         findViewById<Button>(R.id.btnSysStop).setOnClickListener { stopFeature() }
 
-        findViewById<Button>(R.id.btnSysMicSend).setOnClickListener { startFeature(true, Protocol.STREAM_COMBO) }
-        findViewById<Button>(R.id.btnSysMicRecv).setOnClickListener { startFeature(false, Protocol.STREAM_COMBO) }
+        findViewById<Button>(R.id.btnSysMicRecv).setOnClickListener { openFeature(Protocol.STREAM_COMBO) }
         findViewById<Button>(R.id.btnSysMicStop).setOnClickListener { stopFeature() }
         findViewById<Button>(R.id.btnVoiceRecord).setOnClickListener { startVoiceRecord() }
         findViewById<Button>(R.id.btnVoiceRecordStop).setOnClickListener { stopVoiceRecord() }
+
+        btnSenderReady.setOnClickListener { prepareSenderAllPerms() }
 
         tabLayout.addTab(tabLayout.newTab().setText(R.string.tab_wifi))
         tabLayout.addTab(tabLayout.newTab().setText(R.string.tab_bt))
@@ -198,7 +202,9 @@ class MainActivity : BaseActivity() {
         btnStartListen.setOnClickListener {
             startReceiver(if (tab == 0) StreamingService.MODE_WIFI else StreamingService.MODE_BT, selectedStream)
         }
-        btnDisconnect.setOnClickListener { stopService(Intent(this, StreamingService::class.java)) }
+        btnDisconnect.setOnClickListener {
+            stopService(Intent(this, StreamingService::class.java).setAction(StreamingService.ACTION_STOP))
+        }
 
         seekVolume.max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
         seekVolume.progress = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
@@ -248,6 +254,8 @@ class MainActivity : BaseActivity() {
     private fun updateUi() {
         val sender = isSender()
         tvRole.text = getString(R.string.role_fmt, getString(if (sender) R.string.role_sender else R.string.role_receiver))
+        sectionFeatures.visibility = if (sender) View.GONE else View.VISIBLE
+        btnSenderReady.visibility = if (sender && !running) View.VISIBLE else View.GONE
         panelWifi.visibility = if (tab == 0) View.VISIBLE else View.GONE
         panelBluetooth.visibility = if (tab == 1) View.VISIBLE else View.GONE
         btnStartListen.setText(if (tab == 0) R.string.start_listening_wifi else R.string.start_listening_bt)
@@ -263,7 +271,35 @@ class MainActivity : BaseActivity() {
         }))
         btnDisconnect.visibility = if (run) View.VISIBLE else View.GONE
         btnStartListen.visibility = if (!isSender() && !run) View.VISIBLE else View.GONE
+        btnSenderReady.visibility = if (isSender() && !run) View.VISIBLE else View.GONE
         if (run) stopDiscovery() else if (resumed) startDiscovery()
+    }
+
+    private fun prepareSenderAllPerms() {
+        val (all, must) = allPerms()
+        requestPerms(all, must) {
+            senderPermsOk = true
+            toast(R.string.sender_ready_ok)
+            startDiscovery()
+            updateUi()
+        }
+    }
+
+    private fun allPerms(): Pair<List<String>, List<String>> {
+        val all = ArrayList<String>(); val must = ArrayList<String>()
+        all.add(Manifest.permission.RECORD_AUDIO); must.add(Manifest.permission.RECORD_AUDIO)
+        all.add(Manifest.permission.CAMERA); must.add(Manifest.permission.CAMERA)
+        if (Build.VERSION.SDK_INT >= 33) {
+            all.add(Manifest.permission.READ_MEDIA_AUDIO); must.add(Manifest.permission.READ_MEDIA_AUDIO)
+            all.add(Manifest.permission.POST_NOTIFICATIONS); must.add(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            all.add(Manifest.permission.READ_EXTERNAL_STORAGE); must.add(Manifest.permission.READ_EXTERNAL_STORAGE)
+            if (Build.VERSION.SDK_INT <= 32) {
+                all.add(Manifest.permission.WRITE_EXTERNAL_STORAGE); must.add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            }
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) all.add(Manifest.permission.BLUETOOTH_CONNECT)
+        return all to must
     }
 
     private fun renderPeers() {
@@ -276,15 +312,23 @@ class MainActivity : BaseActivity() {
         tvNoPeers.setText(R.string.no_peers)
         tvNoPeers.visibility = if (list.isEmpty() && manual.isBlank()) View.VISIBLE else View.GONE
         for (p in list) {
-            addButton(peerList, "${p.name}\n${p.ip}") {
+            val label = if (p.stream.isNotBlank()) "${p.name}\n${p.ip}\n→ ${streamLabel(p.stream)}" else "${p.name}\n${p.ip}"
+            addButton(peerList, label) {
                 pendingPeerIp = p.ip
-                startSender(StreamingService.MODE_WIFI, p.ip, null, selectedStream)
+                startSenderAfterPerms(StreamingService.MODE_WIFI, p.ip, null, p.stream.ifBlank { selectedStream })
             }
         }
         if (manual.isNotBlank() && list.none { it.ip == manual }) {
             addButton(peerList, getString(R.string.manual_peer_fmt, manual)) {
                 pendingPeerIp = manual
-                startSender(StreamingService.MODE_WIFI, manual, null, selectedStream)
+                startSenderAfterPerms(StreamingService.MODE_WIFI, manual, null, selectedStream)
+            }
+        }
+        if (!running && senderPermsOk) {
+            val want = list.firstOrNull { it.stream.isNotBlank() }
+            if (want != null) {
+                pendingPeerIp = want.ip
+                startSenderAfterPerms(StreamingService.MODE_WIFI, want.ip, null, want.stream)
             }
         }
     }
@@ -305,7 +349,7 @@ class MainActivity : BaseActivity() {
             val name = (try { d.name } catch (e: SecurityException) { null }) ?: "?"
             addButton(btList, "$name\n${d.address}") {
                 pendingBtAddr = d.address
-                startSender(StreamingService.MODE_BT, null, d.address, selectedStream)
+                startSenderAfterPerms(StreamingService.MODE_BT, null, d.address, selectedStream)
             }
         }
     }
@@ -319,10 +363,12 @@ class MainActivity : BaseActivity() {
     }
 
     private fun startDiscovery() {
-        if (discovery != null || running || !AppPrefs.isConfigured(this)) return
+        if (running || !AppPrefs.isConfigured(this)) return
+        val streamAnnounce = if (isSender()) "" else selectedStream
+        if (discovery != null) { discovery?.setStream(streamAnnounce); return }
         val d = DiscoveryHelper(applicationContext, PacketCipher(AppPrefs.pin(this)))
         d.onPeers = { list -> ui.post { peers = list; if (resumed && tab == 0) renderPeers() } }
-        d.start(AppPrefs.deviceName(), AppPrefs.role(this), AppPrefs.manualIp(this))
+        d.start(AppPrefs.deviceName(), AppPrefs.role(this), AppPrefs.manualIp(this), streamAnnounce)
         discovery = d
     }
 
@@ -330,7 +376,55 @@ class MainActivity : BaseActivity() {
 
     private fun stopFeature() {
         stopService(Intent(this, StreamingService::class.java).setAction(StreamingService.ACTION_STOP))
-        running = false; updateUi()
+        running = false; selectedStream = Protocol.STREAM_MIC; discovery?.setStream(""); updateUi()
+    }
+
+    private fun openFeature(stream: String) {
+        if (isSender()) { toast(R.string.receiver_only_features); return }
+        selectedStream = stream
+        tvFeature.text = getString(R.string.feature_active, streamLabel(stream))
+        discovery?.setStream(stream)
+        if (discovery == null) startDiscovery()
+        val mode = if (tab == 0) StreamingService.MODE_WIFI else StreamingService.MODE_BT
+        if (running) {
+            stopService(Intent(this, StreamingService::class.java).setAction(StreamingService.ACTION_STOP))
+            ui.postDelayed({ startReceiver(mode, stream) }, 400)
+        } else startReceiver(mode, stream)
+    }
+
+    private fun startSenderAfterPerms(mode: String, peerIp: String?, btAddr: String?, stream: String) {
+        selectedStream = stream
+        tvFeature.text = getString(R.string.feature_active, streamLabel(stream))
+        val (all, must) = allPerms()
+        requestPerms(all, must) { senderPermsOk = true; startSender(mode, peerIp, btAddr, stream) }
+    }
+
+    private fun startSender(mode: String, peerIp: String?, btAddr: String?, stream: String) {
+        selectedStream = stream
+        if (stream == Protocol.STREAM_SYSTEM) {
+            startReq = StartReq(mode, peerIp, btAddr)
+            projLauncher.launch(getSystemService(MediaProjectionManager::class.java).createScreenCaptureIntent())
+        } else launchService(mode, peerIp, btAddr, 0, null)
+    }
+
+    private fun startReceiver(mode: String, stream: String) {
+        selectedStream = stream
+        val (all, must) = allPerms()
+        requestPerms(all, must) { launchService(mode, null, null, 0, null) }
+    }
+
+    private fun launchService(mode: String, peerIp: String?, btAddr: String?, code: Int, data: Intent?) {
+        val i = Intent(this, StreamingService::class.java).setAction(StreamingService.ACTION_START)
+            .putExtra(StreamingService.EXTRA_ROLE, AppPrefs.role(this))
+            .putExtra(StreamingService.EXTRA_MODE, mode)
+            .putExtra(StreamingService.EXTRA_STREAM, selectedStream)
+        if (peerIp != null) i.putExtra(StreamingService.EXTRA_PEER_IP, peerIp)
+        if (btAddr != null) i.putExtra(StreamingService.EXTRA_BT_ADDRESS, btAddr)
+        if (data != null) {
+            i.putExtra(StreamingService.EXTRA_RESULT_CODE, code)
+            i.putExtra(StreamingService.EXTRA_RESULT_DATA, data)
+        }
+        ContextCompat.startForegroundService(this, i)
     }
 
     private fun startMicRecord() {
@@ -426,8 +520,7 @@ class MainActivity : BaseActivity() {
             row.addView(Button(this).also {
                 it.text = getString(R.string.file_delete)
                 it.setOnClickListener {
-                    File(FileTransfer.listDir(this), name).delete()
-                    openStorageBrowser()
+                    File(FileTransfer.listDir(this), name).delete(); openStorageBrowser()
                 }
             })
         }
@@ -436,63 +529,11 @@ class MainActivity : BaseActivity() {
 
     private fun streamLabel(stream: String): String = when (stream) {
         Protocol.STREAM_MIC -> getString(R.string.feat_mic)
-        Protocol.STREAM_CAMERA_FRONT, Protocol.STREAM_CAMERA_BACK -> getString(R.string.feat_camera)
+        Protocol.STREAM_CAMERA_FRONT -> getString(R.string.feat_cam_front)
+        Protocol.STREAM_CAMERA_BACK -> getString(R.string.feat_camera)
         Protocol.STREAM_STORAGE -> getString(R.string.feat_storage)
         Protocol.STREAM_COMBO -> getString(R.string.feat_sys_mic)
         else -> getString(R.string.feat_system)
-    }
-
-    private fun startFeature(send: Boolean, stream: String) {
-        if (running) stopService(Intent(this, StreamingService::class.java))
-        selectedStream = stream
-        tvFeature.text = getString(R.string.feature_active, streamLabel(stream))
-        AppPrefs.setRole(this, if (send) AppPrefs.ROLE_SENDER else AppPrefs.ROLE_RECEIVER)
-        val mode = if (tab == 0) StreamingService.MODE_WIFI else StreamingService.MODE_BT
-        if (send) {
-            if (mode == StreamingService.MODE_WIFI) {
-                val ip = pendingPeerIp ?: AppPrefs.manualIp(this).ifBlank { null }
-                if (ip.isNullOrBlank()) { toast(R.string.pick_peer_first); updateUi(); startDiscovery(); return }
-                startSender(mode, ip, null, stream)
-            } else {
-                val addr = pendingBtAddr
-                if (addr.isNullOrBlank()) { toast(R.string.pick_peer_first); updateUi(); return }
-                startSender(mode, null, addr, stream)
-            }
-        } else startReceiver(mode, stream)
-    }
-
-    private fun startSender(mode: String, peerIp: String?, btAddr: String?, stream: String = selectedStream) {
-        selectedStream = stream
-        val (all, must) = permsFor(true, mode, stream)
-        requestPerms(all, must) {
-            if (stream == Protocol.STREAM_SYSTEM) {
-                startReq = StartReq(mode, peerIp, btAddr)
-                projLauncher.launch(getSystemService(MediaProjectionManager::class.java).createScreenCaptureIntent())
-            } else launchService(mode, peerIp, btAddr, 0, null)
-        }
-    }
-
-    private fun startReceiver(mode: String, stream: String = selectedStream) {
-        selectedStream = stream
-        val (all, must) = permsFor(false, mode, stream)
-        requestPerms(all, must) { launchService(mode, null, null, 0, null) }
-    }
-
-    private fun permsFor(sender: Boolean, mode: String, stream: String = selectedStream): Pair<List<String>, List<String>> {
-        val all = ArrayList<String>(); val must = ArrayList<String>()
-        all.add(Manifest.permission.RECORD_AUDIO); must.add(Manifest.permission.RECORD_AUDIO)
-        all.add(Manifest.permission.CAMERA); must.add(Manifest.permission.CAMERA)
-        if (Build.VERSION.SDK_INT >= 33) {
-            all.add(Manifest.permission.READ_MEDIA_AUDIO); must.add(Manifest.permission.READ_MEDIA_AUDIO)
-            all.add(Manifest.permission.POST_NOTIFICATIONS); must.add(Manifest.permission.POST_NOTIFICATIONS)
-        } else {
-            all.add(Manifest.permission.READ_EXTERNAL_STORAGE); must.add(Manifest.permission.READ_EXTERNAL_STORAGE)
-            if (Build.VERSION.SDK_INT <= 32) { all.add(Manifest.permission.WRITE_EXTERNAL_STORAGE); must.add(Manifest.permission.WRITE_EXTERNAL_STORAGE) }
-        }
-        if (mode == StreamingService.MODE_BT && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            all.add(Manifest.permission.BLUETOOTH_CONNECT); must.add(Manifest.permission.BLUETOOTH_CONNECT)
-        }
-        return all to must
     }
 
     private fun requestPerms(all: List<String>, must: List<String>, onOk: () -> Unit) {
@@ -502,28 +543,12 @@ class MainActivity : BaseActivity() {
     }
 
     private fun granted(p: String) = ContextCompat.checkSelfPermission(this, p) == PackageManager.PERMISSION_GRANTED
-
     private fun deniedMessage(p: String) = when (p) {
         Manifest.permission.RECORD_AUDIO -> R.string.perm_audio
         Manifest.permission.CAMERA -> R.string.perm_camera
         Manifest.permission.POST_NOTIFICATIONS -> R.string.perm_notif
         else -> R.string.perm_storage
     }
-
-    private fun launchService(mode: String, peerIp: String?, btAddr: String?, code: Int, data: Intent?) {
-        val i = Intent(this, StreamingService::class.java).setAction(StreamingService.ACTION_START)
-            .putExtra(StreamingService.EXTRA_ROLE, AppPrefs.role(this))
-            .putExtra(StreamingService.EXTRA_MODE, mode)
-            .putExtra(StreamingService.EXTRA_STREAM, selectedStream)
-        if (peerIp != null) i.putExtra(StreamingService.EXTRA_PEER_IP, peerIp)
-        if (btAddr != null) i.putExtra(StreamingService.EXTRA_BT_ADDRESS, btAddr)
-        if (data != null) {
-            i.putExtra(StreamingService.EXTRA_RESULT_CODE, code)
-            i.putExtra(StreamingService.EXTRA_RESULT_DATA, data)
-        }
-        ContextCompat.startForegroundService(this, i)
-    }
-
     private fun btAdapter(): BluetoothAdapter? = getSystemService(BluetoothManager::class.java)?.adapter
     private fun toast(res: Int) = Toast.makeText(this, res, Toast.LENGTH_LONG).show()
 }
