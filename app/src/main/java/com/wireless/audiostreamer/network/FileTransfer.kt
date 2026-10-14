@@ -20,6 +20,27 @@ object FileTransfer {
         return d
     }
 
+    fun resolveSafe(ctx: Context, name: String): File? {
+        if (name.contains("..")) return null
+        val base = ctx.getExternalFilesDir(null) ?: return null
+        val f = File(base, name)
+        val path = try { f.canonicalPath } catch (_: Exception) { return null }
+        if (!path.startsWith(base.canonicalPath)) return null
+        return if (f.isFile) f else null
+    }
+
+    fun listLocalNames(ctx: Context): List<String> {
+        val names = ArrayList<String>()
+        for (sub in listOf("shared", "recordings")) {
+            val d = File(ctx.getExternalFilesDir(null), sub)
+            if (!d.exists()) continue
+            d.listFiles()?.filter { it.isFile }?.sortedBy { it.name }?.forEach {
+                names.add(if (sub == "shared") it.name else "$sub/${it.name}")
+            }
+        }
+        return names
+    }
+
     fun startServer(ctx: Context, onLog: (String) -> Unit = {}): Thread {
         return thread(isDaemon = true, name = "was-file-srv") {
             var ss: ServerSocket? = null
@@ -45,18 +66,17 @@ object FileTransfer {
             val din = DataInputStream(BufferedInputStream(sock.getInputStream()))
             val dout = DataOutputStream(BufferedOutputStream(sock.getOutputStream()))
             val line = din.readUTF()
-            val dir = listDir(ctx)
             when {
                 line == "LIST" -> {
-                    val files = dir.listFiles()?.filter { it.isFile }?.map { it.name } ?: emptyList()
+                    val files = listLocalNames(ctx)
                     dout.writeInt(files.size)
                     for (n in files) dout.writeUTF(n)
                     dout.flush()
                 }
                 line.startsWith("GET ") -> {
                     val name = line.removePrefix("GET ").trim()
-                    val f = File(dir, name)
-                    if (!f.exists() || !f.isFile || name.contains("..") || name.contains('/')) {
+                    val f = resolveSafe(ctx, name)
+                    if (f == null) {
                         dout.writeInt(-1)
                     } else {
                         dout.writeInt(f.length().toInt().coerceAtMost(Int.MAX_VALUE / 2))
@@ -73,8 +93,8 @@ object FileTransfer {
                 }
                 line.startsWith("DELETE ") -> {
                     val name = line.removePrefix("DELETE ").trim()
-                    val f = File(dir, name)
-                    val ok = !name.contains("..") && f.exists() && f.delete()
+                    val f = resolveSafe(ctx, name)
+                    val ok = f != null && f.delete()
                     dout.writeUTF(if (ok) "OK" else "ERR")
                     dout.flush()
                 }
@@ -86,6 +106,7 @@ object FileTransfer {
                     if (size < 0 || size > 50_000_000 || name.contains("..") || name.contains('/')) {
                         dout.writeUTF("ERR"); dout.flush(); return
                     }
+                    val dir = listDir(ctx)
                     val f = File(dir, name)
                     FileOutputStream(f).use { outs ->
                         val buf = ByteArray(8192)
