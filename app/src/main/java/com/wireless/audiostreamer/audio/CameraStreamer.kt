@@ -14,9 +14,10 @@ import android.os.HandlerThread
 import android.util.Size
 import java.nio.ByteBuffer
 
-/** Opens the back camera and emits JPEG frames (~5 fps) for network streaming. */
+/** Streams JPEG frames from front or back camera (~5 fps). */
 class CameraStreamer(
     private val ctx: Context,
+    private val useFront: Boolean,
     private val onJpeg: (ByteArray) -> Unit
 ) {
     private var device: CameraDevice? = null
@@ -32,15 +33,15 @@ class CameraStreamer(
         stop()
         return try {
             val cm = ctx.getSystemService(CameraManager::class.java)
+            val want = if (useFront) CameraCharacteristics.LENS_FACING_FRONT
+            else CameraCharacteristics.LENS_FACING_BACK
             val id = cm.cameraIdList.firstOrNull { cid ->
-                val facing = cm.getCameraCharacteristics(cid)
-                    .get(CameraCharacteristics.LENS_FACING)
-                facing == CameraCharacteristics.LENS_FACING_BACK
+                cm.getCameraCharacteristics(cid).get(CameraCharacteristics.LENS_FACING) == want
             } ?: cm.cameraIdList.firstOrNull() ?: return false
 
             val chars = cm.getCameraCharacteristics(id)
             val map = chars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP) ?: return false
-            val size = chooseSize(map.getOutputSizes(ImageFormat.JPEG))
+            val size = chooseSize(map.getOutputSizes(ImageFormat.JPEG) ?: return false)
 
             val ht = HandlerThread("was-cam").also { it.start() }
             thread = ht
@@ -53,12 +54,15 @@ class CameraStreamer(
                     val now = System.currentTimeMillis()
                     if (now - lastMs < 180) return@setOnImageAvailableListener
                     lastMs = now
-                    val buf: ByteBuffer = img.planes[0].buffer
+                    val planes = img.planes
+                    if (planes.isEmpty()) return@setOnImageAvailableListener
+                    val buf: ByteBuffer = planes[0].buffer
                     val bytes = ByteArray(buf.remaining())
                     buf.get(bytes)
-                    if (running) onJpeg(bytes)
+                    if (bytes.isNotEmpty()) onJpeg(bytes)
+                } catch (_: Exception) {
                 } finally {
-                    img.close()
+                    try { img.close() } catch (_: Exception) {}
                 }
             }, handler)
             reader = ir
@@ -73,16 +77,19 @@ class CameraStreamer(
                             object : CameraCaptureSession.StateCallback() {
                                 override fun onConfigured(s: CameraCaptureSession) {
                                     session = s
-                                    val req = cam.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
-                                    req.addTarget(ir.surface)
-                                    req.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO)
-                                    s.setRepeatingRequest(req.build(), null, handler)
+                                    try {
+                                        val req = cam.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
+                                        req.addTarget(ir.surface)
+                                        req.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO)
+                                        req.set(CaptureRequest.JPEG_QUALITY, 70.toByte())
+                                        s.setRepeatingRequest(req.build(), null, handler)
+                                    } catch (_: Exception) { stop() }
                                 }
                                 override fun onConfigureFailed(s: CameraCaptureSession) { stop() }
                             },
                             handler
                         )
-                    } catch (e: Exception) { stop() }
+                    } catch (_: Exception) { stop() }
                 }
                 override fun onDisconnected(cam: CameraDevice) { stop() }
                 override fun onError(cam: CameraDevice, error: Int) { stop() }
@@ -94,24 +101,21 @@ class CameraStreamer(
         }
     }
 
-    private fun chooseSize(sizes: Array<Size>): Size {
-        return sizes
-            .filter { it.width * it.height <= 640 * 480 }
-            .maxByOrNull { it.width * it.height }
-            ?: sizes.minByOrNull { it.width * it.height }
-            ?: Size(640, 480)
-    }
-
     fun stop() {
         running = false
-        try { session?.close() } catch (_: Exception) { }
+        try { session?.close() } catch (_: Exception) {}
         session = null
-        try { device?.close() } catch (_: Exception) { }
+        try { device?.close() } catch (_: Exception) {}
         device = null
-        try { reader?.close() } catch (_: Exception) { }
+        try { reader?.close() } catch (_: Exception) {}
         reader = null
-        try { thread?.quitSafely() } catch (_: Exception) { }
+        try { thread?.quitSafely() } catch (_: Exception) {}
         thread = null
         handler = null
+    }
+
+    private fun chooseSize(sizes: Array<Size>): Size {
+        val sorted = sizes.sortedBy { it.width * it.height }
+        return sorted.firstOrNull { it.width in 480..1280 } ?: sorted.getOrElse(sorted.size / 2) { sizes[0] }
     }
 }
