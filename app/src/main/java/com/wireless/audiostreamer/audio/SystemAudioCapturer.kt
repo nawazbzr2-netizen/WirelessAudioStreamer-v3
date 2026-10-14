@@ -11,9 +11,9 @@ import com.wireless.audiostreamer.network.Protocol
 import kotlin.concurrent.thread
 
 /**
- * Captures the phone's internal playback audio (AudioPlaybackCapture, Android 10+).
- * Always captures stereo and down-mixes in software when mono is requested.
- * Requires RECORD_AUDIO to be granted and a live MediaProjection.
+ * Captures internal playback only (media / game).
+ * Explicitly excludes voice-communication and assistant usages so the
+ * sender microphone is never mixed into "System sound".
  */
 class SystemAudioCapturer(
     private val projection: MediaProjection,
@@ -30,7 +30,17 @@ class SystemAudioCapturer(
             val cfg = AudioPlaybackCaptureConfiguration.Builder(projection)
                 .addMatchingUsage(AudioAttributes.USAGE_MEDIA)
                 .addMatchingUsage(AudioAttributes.USAGE_GAME)
-                .addMatchingUsage(AudioAttributes.USAGE_UNKNOWN)
+                .excludeUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                .excludeUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION_SIGNALLING)
+                .excludeUsage(AudioAttributes.USAGE_ASSISTANT)
+                .excludeUsage(AudioAttributes.USAGE_ASSISTANCE_ACCESSIBILITY)
+                .excludeUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
+                .excludeUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+                .excludeUsage(AudioAttributes.USAGE_NOTIFICATION)
+                .excludeUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+                .excludeUsage(AudioAttributes.USAGE_NOTIFICATION_COMMUNICATION_REQUEST)
+                .excludeUsage(AudioAttributes.USAGE_NOTIFICATION_COMMUNICATION_INSTANT)
+                .excludeUsage(AudioAttributes.USAGE_NOTIFICATION_COMMUNICATION_DELAYED)
                 .build()
             val fmt = AudioFormat.Builder()
                 .setEncoding(AudioFormat.ENCODING_PCM_16BIT)

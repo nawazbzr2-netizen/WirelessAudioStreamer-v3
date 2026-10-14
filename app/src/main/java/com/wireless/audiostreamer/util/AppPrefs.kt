@@ -49,4 +49,26 @@ object AppPrefs {
     }
 
     fun deviceName(): String = (Build.MODEL ?: "Android").take(40)
+
+    // --- Recent connection (auto-reconnect) ---
+    fun lastPeerIp(c: Context): String = p(c).getString("last_peer_ip", "") ?: ""
+    fun lastMode(c: Context): String = p(c).getString("last_mode", "WIFI") ?: "WIFI"
+    fun lastBtAddr(c: Context): String = p(c).getString("last_bt", "") ?: ""
+    fun lastStream(c: Context): String = p(c).getString("last_stream", "") ?: ""
+
+    fun saveRecentConnection(c: Context, mode: String, peerIp: String?, btAddr: String?, stream: String) {
+        p(c).edit()
+            .putString("last_mode", mode)
+            .putString("last_peer_ip", peerIp ?: "")
+            .putString("last_bt", btAddr ?: "")
+            .putString("last_stream", stream)
+            .apply()
+    }
+
+    fun clearRecentConnection(c: Context) {
+        p(c).edit()
+            .remove("last_mode").remove("last_peer_ip")
+            .remove("last_bt").remove("last_stream")
+            .apply()
+    }
 }
