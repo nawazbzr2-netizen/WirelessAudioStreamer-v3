@@ -38,19 +38,29 @@
                 android:layout_height="wrap_content" android:layout_marginTop="6dp"
                 android:textSize="14sp" android:textStyle="bold" android:textColor="?attr/colorPrimary" />
 
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnSenderReady"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="@string/btn_sender_ready"
+                android:visibility="gone" />
+
+            <LinearLayout android:id="@+id/sectionFeatures"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
             <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:layout_marginTop="16dp" android:text="@string/feat_mic"
                 android:textStyle="bold" android:textSize="15sp" />
             <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:orientation="horizontal">
-                <com.google.android.material.button.MaterialButton android:id="@+id/btnMicSend"
-                    style="@style/Widget.Material3.Button.TonalButton"
-                    android:layout_width="0dp" android:layout_height="wrap_content"
-                    android:layout_weight="1" android:layout_marginEnd="4dp" android:text="@string/btn_send" />
                 <com.google.android.material.button.MaterialButton android:id="@+id/btnMicRecv"
                     style="@style/Widget.Material3.Button.TonalButton"
                     android:layout_width="0dp" android:layout_height="wrap_content"
-                    android:layout_weight="1" android:layout_marginEnd="4dp" android:text="@string/btn_recv" />
+                    android:layout_weight="1" android:layout_marginEnd="4dp"
+                    android:text="@string/btn_open" />
                 <com.google.android.material.button.MaterialButton android:id="@+id/btnMicStop"
                     style="@style/Widget.Material3.Button.OutlinedButton"
                     android:layout_width="0dp" android:layout_height="wrap_content"
@@ -61,7 +71,8 @@
                 <com.google.android.material.button.MaterialButton android:id="@+id/btnMicRecord"
                     style="@style/Widget.Material3.Button.TonalButton"
                     android:layout_width="0dp" android:layout_height="wrap_content"
-                    android:layout_weight="1" android:layout_marginEnd="4dp" android:text="@string/btn_mic_record" />
+                    android:layout_weight="1" android:layout_marginEnd="4dp"
+                    android:text="@string/btn_mic_record" />
                 <com.google.android.material.button.MaterialButton android:id="@+id/btnMicRecordStop"
                     style="@style/Widget.Material3.Button.OutlinedButton"
                     android:layout_width="0dp" android:layout_height="wrap_content"
@@ -73,14 +84,11 @@
                 android:textStyle="bold" android:textSize="15sp" />
             <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:orientation="horizontal">
-                <com.google.android.material.button.MaterialButton android:id="@+id/btnCamSend"
-                    style="@style/Widget.Material3.Button.TonalButton"
-                    android:layout_width="0dp" android:layout_height="wrap_content"
-                    android:layout_weight="1" android:layout_marginEnd="4dp" android:text="@string/btn_send" />
                 <com.google.android.material.button.MaterialButton android:id="@+id/btnCamRecv"
                     style="@style/Widget.Material3.Button.TonalButton"
                     android:layout_width="0dp" android:layout_height="wrap_content"
-                    android:layout_weight="1" android:layout_marginEnd="4dp" android:text="@string/btn_recv" />
+                    android:layout_weight="1" android:layout_marginEnd="4dp"
+                    android:text="@string/btn_open" />
                 <com.google.android.material.button.MaterialButton android:id="@+id/btnCamStop"
                     style="@style/Widget.Material3.Button.OutlinedButton"
                     android:layout_width="0dp" android:layout_height="wrap_content"
@@ -91,11 +99,13 @@
                 <com.google.android.material.button.MaterialButton android:id="@+id/btnCamPhoto"
                     style="@style/Widget.Material3.Button.TonalButton"
                     android:layout_width="0dp" android:layout_height="wrap_content"
-                    android:layout_weight="1" android:layout_marginEnd="4dp" android:text="@string/btn_photo" />
+                    android:layout_weight="1" android:layout_marginEnd="4dp"
+                    android:text="@string/btn_photo" />
                 <com.google.android.material.button.MaterialButton android:id="@+id/btnCamVideo"
                     style="@style/Widget.Material3.Button.TonalButton"
                     android:layout_width="0dp" android:layout_height="wrap_content"
-                    android:layout_weight="1" android:layout_marginEnd="4dp" android:text="@string/btn_video" />
+                    android:layout_weight="1" android:layout_marginEnd="4dp"
+                    android:text="@string/btn_video" />
                 <com.google.android.material.button.MaterialButton android:id="@+id/btnCamVideoStop"
                     style="@style/Widget.Material3.Button.OutlinedButton"
                     android:layout_width="0dp" android:layout_height="wrap_content"
@@ -107,39 +117,50 @@
                 android:contentDescription="@string/feat_camera" android:visibility="gone" />
 
             <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="16dp" android:text="@string/feat_cam_front"
+                android:textStyle="bold" android:textSize="15sp" />
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="horizontal">
+                <com.google.android.material.button.MaterialButton android:id="@+id/btnCamFrontRecv"
+                    style="@style/Widget.Material3.Button.TonalButton"
+                    android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:layout_marginEnd="4dp"
+                    android:text="@string/btn_open" />
+                <com.google.android.material.button.MaterialButton android:id="@+id/btnCamFrontStop"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:text="@string/btn_stop" />
+            </LinearLayout>
+
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:layout_marginTop="16dp" android:text="@string/feat_storage"
                 android:textStyle="bold" android:textSize="15sp" />
             <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:orientation="horizontal">
-                <com.google.android.material.button.MaterialButton android:id="@+id/btnStorageSend"
-                    style="@style/Widget.Material3.Button.TonalButton"
-                    android:layout_width="0dp" android:layout_height="wrap_content"
-                    android:layout_weight="1" android:layout_marginEnd="4dp" android:text="@string/btn_open_storage" />
                 <com.google.android.material.button.MaterialButton android:id="@+id/btnStorageRecv"
                     style="@style/Widget.Material3.Button.TonalButton"
                     android:layout_width="0dp" android:layout_height="wrap_content"
-                    android:layout_weight="1" android:layout_marginEnd="4dp" android:text="@string/btn_recv" />
+                    android:layout_weight="1" android:layout_marginEnd="4dp"
+                    android:text="@string/btn_open" />
                 <com.google.android.material.button.MaterialButton android:id="@+id/btnStorageStop"
                     style="@style/Widget.Material3.Button.OutlinedButton"
                     android:layout_width="0dp" android:layout_height="wrap_content"
                     android:layout_weight="1" android:text="@string/btn_stop" />
             </LinearLayout>
             <LinearLayout android:id="@+id/storageList" android:layout_width="match_parent"
-                android:layout_height="wrap_content" android:orientation="vertical" android:layout_marginTop="8dp" />
+                android:layout_height="wrap_content" android:orientation="vertical"
+                android:layout_marginTop="8dp" />
 
             <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:layout_marginTop="16dp" android:text="@string/feat_system"
                 android:textStyle="bold" android:textSize="15sp" />
             <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:orientation="horizontal">
-                <com.google.android.material.button.MaterialButton android:id="@+id/btnSysSend"
-                    style="@style/Widget.Material3.Button.TonalButton"
-                    android:layout_width="0dp" android:layout_height="wrap_content"
-                    android:layout_weight="1" android:layout_marginEnd="4dp" android:text="@string/btn_send" />
                 <com.google.android.material.button.MaterialButton android:id="@+id/btnSysRecv"
                     style="@style/Widget.Material3.Button.TonalButton"
                     android:layout_width="0dp" android:layout_height="wrap_content"
-                    android:layout_weight="1" android:layout_marginEnd="4dp" android:text="@string/btn_recv" />
+                    android:layout_weight="1" android:layout_marginEnd="4dp"
+                    android:text="@string/btn_open" />
                 <com.google.android.material.button.MaterialButton android:id="@+id/btnSysStop"
                     style="@style/Widget.Material3.Button.OutlinedButton"
                     android:layout_width="0dp" android:layout_height="wrap_content"
@@ -151,14 +172,11 @@
                 android:textStyle="bold" android:textSize="15sp" />
             <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:orientation="horizontal">
-                <com.google.android.material.button.MaterialButton android:id="@+id/btnSysMicSend"
-                    style="@style/Widget.Material3.Button.TonalButton"
-                    android:layout_width="0dp" android:layout_height="wrap_content"
-                    android:layout_weight="1" android:layout_marginEnd="4dp" android:text="@string/btn_send" />
                 <com.google.android.material.button.MaterialButton android:id="@+id/btnSysMicRecv"
                     style="@style/Widget.Material3.Button.TonalButton"
                     android:layout_width="0dp" android:layout_height="wrap_content"
-                    android:layout_weight="1" android:layout_marginEnd="4dp" android:text="@string/btn_recv" />
+                    android:layout_weight="1" android:layout_marginEnd="4dp"
+                    android:text="@string/btn_open" />
                 <com.google.android.material.button.MaterialButton android:id="@+id/btnSysMicStop"
                     style="@style/Widget.Material3.Button.OutlinedButton"
                     android:layout_width="0dp" android:layout_height="wrap_content"
@@ -169,11 +187,13 @@
                 <com.google.android.material.button.MaterialButton android:id="@+id/btnVoiceRecord"
                     style="@style/Widget.Material3.Button.TonalButton"
                     android:layout_width="0dp" android:layout_height="wrap_content"
-                    android:layout_weight="1" android:layout_marginEnd="4dp" android:text="@string/btn_voice_record" />
+                    android:layout_weight="1" android:layout_marginEnd="4dp"
+                    android:text="@string/btn_voice_record" />
                 <com.google.android.material.button.MaterialButton android:id="@+id/btnVoiceRecordStop"
                     style="@style/Widget.Material3.Button.OutlinedButton"
                     android:layout_width="0dp" android:layout_height="wrap_content"
                     android:layout_weight="1" android:text="@string/btn_stop_record" />
+            </LinearLayout>
             </LinearLayout>
 
             <com.google.android.material.tabs.TabLayout

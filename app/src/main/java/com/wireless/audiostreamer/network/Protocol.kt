@@ -51,13 +51,16 @@ object Protocol {
         return Audio(ch, pcm)
     }
 
-    fun helloPlain(name: String, role: String): ByteArray =
-        "$name\n$role".toByteArray(Charsets.UTF_8)
+    fun helloPlain(name: String, role: String, stream: String = ""): ByteArray =
+        "$name\n$role\n$stream".toByteArray(Charsets.UTF_8)
 
-    fun parseHello(b: ByteArray): Pair<String, String>? {
+    fun parseHello(b: ByteArray): Triple<String, String, String>? {
         val s = String(b, Charsets.UTF_8)
-        val i = s.lastIndexOf('\n')
-        if (i < 0) return null
-        return Pair(s.substring(0, i).take(40), s.substring(i + 1))
+        val parts = s.split('\n', limit = 3)
+        if (parts.size < 2) return null
+        val name = parts[0].take(40)
+        val role = parts[1]
+        val stream = if (parts.size > 2) parts[2] else ""
+        return Triple(name, role, stream)
     }
 }
