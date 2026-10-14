@@ -10,12 +10,8 @@ import java.security.SecureRandom
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.concurrent.thread
 
-/**
- * Announces this phone (name + role) every 2 s and listens for other phones that use the same PIN.
- * Announcements are AES-GCM protected, so phones with a different PIN never show up.
- */
 class DiscoveryHelper(ctx: Context, private val cipher: PacketCipher) {
-    data class Peer(val ip: String, val name: String, val role: String, val seen: Long)
+    data class Peer(val ip: String, val name: String, val role: String, val seen: Long, val stream: String = "")
 
     @Volatile var onPeers: ((List<Peer>) -> Unit)? = null
 
@@ -30,12 +26,17 @@ class DiscoveryHelper(ctx: Context, private val cipher: PacketCipher) {
     @Volatile private var manualIp = ""
     private var name = ""
     private var role = ""
+    @Volatile private var streamReq = ""
 
-    fun start(name: String, role: String, manualIp: String) {
-        if (running) return
+    fun start(name: String, role: String, manualIp: String, stream: String = "") {
+        if (running) {
+            this.streamReq = stream
+            return
+        }
         this.name = name
         this.role = role
         this.manualIp = manualIp
+        this.streamReq = stream
         running = true
         threads.add(thread(isDaemon = true, name = "was-disc-rx") { rxLoop() })
         threads.add(thread(isDaemon = true, name = "was-disc-tx") { txLoop() })
@@ -50,6 +51,8 @@ class DiscoveryHelper(ctx: Context, private val cipher: PacketCipher) {
     }
 
     fun resetNetwork() = out.reset()
+
+    fun setStream(stream: String) { streamReq = stream }
 
     fun lastSeen(ip: String): Long = peers[ip]?.seen ?: 0L
 
@@ -71,46 +74,40 @@ class DiscoveryHelper(ctx: Context, private val cipher: PacketCipher) {
                     handle(pkt)
                 }
             } catch (e: Exception) {
-                if (running) {
-                    try { Thread.sleep(1000) } catch (ie: InterruptedException) { return }
-                }
+                if (running) try { Thread.sleep(500) } catch (_: InterruptedException) { return }
             } finally {
-                try { s?.close() } catch (e: Exception) { }
+                try { s?.close() } catch (_: Exception) { }
                 rxSock = null
             }
         }
     }
 
     private fun handle(pkt: DatagramPacket) {
-        val ip = pkt.address?.hostAddress ?: return
-        if (!NetUtil.isPrivateIp(ip) || NetUtil.localIps().contains(ip)) return
+        val from = pkt.address?.hostAddress ?: return
+        if (!NetUtil.isPrivateIp(from)) return
         val o = cipher.open(pkt.data, pkt.length) ?: return
         if (o.type != Protocol.T_HELLO) return
         val h = Protocol.parseHello(o.plain) ?: return
+        val (hName, hRole, hStream) = h
         val now = System.currentTimeMillis()
-        peers[ip] = Peer(ip, h.first, h.second, now)
-        unicast[ip] = now
-        publish()
+        peers[from] = Peer(from, hName, hRole, now, hStream)
+        notifyPeers()
     }
 
     private fun txLoop() {
         while (running) {
             try {
-                val frame = cipher.seal(Protocol.T_HELLO, session, seq++, Protocol.helloPlain(name, role))
-                val targets = LinkedHashSet<InetAddress>()
-                targets.addAll(NetUtil.broadcastAddresses())
-                val manual = manualIp
-                if (NetUtil.isPrivateIp(manual)) targets.add(InetAddress.getByName(manual))
-                val now = System.currentTimeMillis()
-                for ((ip, t) in unicast) {
-                    if (now - t < 15000) {
-                        if (NetUtil.isPrivateIp(ip)) targets.add(InetAddress.getByName(ip))
-                    } else {
-                        unicast.remove(ip)
-                    }
+                val frame = cipher.seal(Protocol.T_HELLO, session, seq++, Protocol.helloPlain(name, role, streamReq))
+                val targets = ArrayList<InetAddress>()
+                try { targets.add(InetAddress.getByName("255.255.255.255")) } catch (_: Exception) { }
+                for (ip in NetUtil.broadcastIps()) {
+                    try { targets.add(InetAddress.getByName(ip)) } catch (_: Exception) { }
+                }
+                if (manualIp.isNotBlank()) {
+                    try { targets.add(InetAddress.getByName(manualIp)) } catch (_: Exception) { }
                 }
                 for (t in targets) out.send(frame, frame.size, t, Protocol.PORT_DISCOVERY)
-
+                val now = System.currentTimeMillis()
                 var changed = false
                 for ((ip, p) in peers) {
                     if (now - p.seen > 7000) {
@@ -118,17 +115,17 @@ class DiscoveryHelper(ctx: Context, private val cipher: PacketCipher) {
                         changed = true
                     }
                 }
-                if (changed) publish()
+                if (changed) notifyPeers()
                 Thread.sleep(2000)
             } catch (e: InterruptedException) {
                 return
             } catch (e: Exception) {
-                try { Thread.sleep(1000) } catch (ie: InterruptedException) { return }
+                try { Thread.sleep(2000) } catch (_: InterruptedException) { return }
             }
         }
     }
 
-    private fun publish() {
+    private fun notifyPeers() {
         onPeers?.invoke(peers.values.sortedBy { it.name })
     }
 }
