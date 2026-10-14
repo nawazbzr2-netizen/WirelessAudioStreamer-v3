@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">وائرلیس آڈیو اسٹریمر</string>
+
+    <string name="setup_title">ابتدائی ترتیب</string>
+    <string name="setup_hint">دونوں فونز پر ایک ہی PIN رکھیں۔ ایک فون بھیجنے والا اور دوسرا وصول کنندہ ہوگا۔</string>
+    <string name="role_sender">بھیجنے والا (آواز بھیجے)</string>
+    <string name="role_receiver">وصول کنندہ (آواز سنے)</string>
+    <string name="role_fmt">کردار: %1$s</string>
+    <string name="pin_label">PIN (4 سے 8 ہندسے)</string>
+    <string name="pin_invalid">PIN کم از کم 4 ہندسوں کا ہونا چاہیے</string>
+    <string name="continue_btn">آگے بڑھیں</string>
+
+    <string name="menu_settings">سیٹنگز</string>
+    <string name="btn_save">محفوظ کریں</string>
+    <string name="saved">محفوظ ہو گیا</string>
+    <string name="restart_hint">اسٹریمنگ بند کر دی گئی ہے۔ تبدیلیاں لاگو کرنے کے لیے دوبارہ شروع کریں۔</string>
+    <string name="invalid_ip">IP درست نہیں یا مقامی نیٹ ورک کا نہیں</string>
+
+    <string name="tab_wifi">وائی فائی / ہاٹ اسپاٹ</string>
+    <string name="tab_bt">بلوٹوتھ</string>
+    <string name="disconnect">منقطع کریں</string>
+    <string name="start_listening_wifi">وائی فائی پر سننا شروع کریں</string>
+    <string name="start_listening_bt">بلوٹوتھ پر سننا شروع کریں</string>
+    <string name="refresh">تازہ کریں</string>
+    <string name="bt_settings">بلوٹوتھ سیٹنگز</string>
+    <string name="no_peers">کوئی ڈیوائس نہیں ملی۔ دونوں فون ایک ہی وائی فائی یا ہاٹ اسپاٹ پر ہوں، وصول کنندہ پر ایپ کھلی ہو اور PIN ایک جیسا ہو۔</string>
+    <string name="receiver_wifi_hint">وصول کنندہ: \"سننا شروع کریں\" دبائیں، پھر بھیجنے والے فون سے اس فون کو منتخب کریں۔</string>
+    <string name="no_bt_devices">کوئی پیئر شدہ ڈیوائس نہیں۔ پہلے سسٹم کی بلوٹوتھ سیٹنگز میں فون پیئر کریں، پھر \"تازہ کریں\" دبائیں۔</string>
+    <string name="receiver_bt_hint">پہلے بلوٹوتھ سیٹنگز میں فون پیئر کریں، پھر \"سننا شروع کریں\" دبائیں اور بھیجنے والے فون سے ملائیں۔</string>
+    <string name="manual_peer_fmt">دستی IP: %1$s</string>
+    <string name="my_ip">اس فون کا IP: %1$s</string>
+    <string name="volume">آواز</string>
+
+    <string name="status_idle">منقطع</string>
+    <string name="status_starting">شروع ہو رہا ہے…</string>
+    <string name="status_waiting_sender">بھیجنے والے کا انتظار…</string>
+    <string name="status_waiting_peer">دوسرے فون کا انتظار…</string>
+    <string name="status_connected">منسلک ✓ %1$s</string>
+    <string name="status_peer_lost">رابطہ ٹوٹ گیا، دوبارہ ملانے کی کوشش جاری ہے…</string>
+    <string name="status_bt_off">بلوٹوتھ بند ہے یا دستیاب نہیں۔ اسے آن کریں۔</string>
+    <string name="status_bt_connecting">بلوٹوتھ سے ملایا جا رہا ہے…</string>
+    <string name="status_wrong_pin">آواز ڈی کرپٹ نہیں ہو رہی۔ دونوں فونز پر PIN ایک جیسا رکھیں۔</string>
+    <string name="status_capture_failed">آواز کیپچر شروع نہیں ہو سکی</string>
+    <string name="status_projection_stopped">اسکرین کاسٹ بند ہو گئی</string>
+    <string name="status_start_failed">سروس شروع نہیں ہو سکی</string>
+
+    <string name="perm_audio">فون کی اندرونی آواز کیپچر کرنے کے لیے \"آڈیو ریکارڈ\" کی اجازت ضروری ہے (یہ مائیک استعمال نہیں کرتی)۔</string>
+    <string name="perm_bt">بلوٹوتھ کی اجازت ضروری ہے</string>
+    <string name="cast_denied">اسکرین کاسٹ کی اجازت نہیں ملی (آواز کیپچر کے لیے ضروری ہے)</string>
+
+    <string name="notif_channel">آڈیو اسٹریمنگ</string>
+    <string name="notif_title">وائرلیس آڈیو اسٹریمر</string>
+    <string name="notif_stop">بند کریں</string>
+
+    <string name="s_role">کردار</string>
+    <string name="s_pin">PIN</string>
+    <string name="s_channels">آواز کی قسم</string>
+    <string name="ch_mono">مونو (کم ڈیٹا)</string>
+    <string name="ch_stereo">اسٹیریو</string>
+    <string name="s_latency">تاخیر / استحکام</string>
+    <string name="lat_low">کم تاخیر (40ms)</string>
+    <string name="lat_normal">متوازن (80ms)</string>
+    <string name="lat_safe">مستحکم (160ms)</string>
+    <string name="s_manual_ip">دستی IP (اختیاری)</string>
+    <string name="manual_ip_hint">مثلاً 192.168.43.1</string>
+    <string name="s_language">زبان</string>
+    <string name="lang_system">سسٹم</string>
+    <string name="lang_en">English</string>
+    <string name="lang_ur">اردو</string>
+
+    <!-- Security / permissions -->
+    <string name="perm_camera">سیکیورٹی کے لیے کیمرا کی اجازت ضروری ہے۔ ایپ ویڈیو ریکارڈ نہیں کرتی؛ سٹریمنگ کے لیے آپ کو اجازت دینی ہوگی۔</string>
+    <string name="perm_storage">آڈیو سٹریم کرنے سے پہلے سٹوریج کی اجازت ضروری ہے۔</string>
+    <string name="perm_notif">نوٹیفکیشن کی اجازت ضروری ہے تاکہ آڈیو کیپچر کے دوران مستقل الرٹ نظر آئے۔</string>
+    <string name="perm_all_required">مائک، کیمرا، سٹوریج اور نوٹیفکیشن سب کی اجازت لازمی ہے۔ ورنہ سٹریمنگ شروع نہیں ہوگی۔</string>
+    <string name="notif_title_active">آڈیو کیپچر جاری ہے</string>
+    <string name="notif_capture_active">سسٹم آڈیو کیپچر اور سٹریم ہو رہی ہے۔ بند کرنے کے لیے Stop دبائیں۔</string>
+    <string name="notif_security_sub">مشترکہ PIN سے محفوظ</string>
+    <string name="notif_channel_desc">اس فون پر آڈیو بھیجتے یا وصول کرتے وقت مسلسل دکھائی دیتی ہے۔</string>
+    <string name="security_pin_required">دونوں فونز پر ایک ہی 4 سے 8 ہندسوں کا PIN رکھیں۔ اس کے بغیر ایپ سٹریم نہیں کرے گی۔</string>
+
+    <string name="feat_section_title">فیچرز — بھیجیں / وصول کریں</string>
+    <string name="feat_mic">مائیک</string>
+    <string name="feat_cam_front">فرنٹ کیمرا</string>
+    <string name="feat_storage">اسٹوریج</string>
+    <string name="feat_system">سسٹم ساؤنڈ</string>
+    <string name="feat_combo">مائیک + کیمرا + اسٹوریج</string>
+    <string name="btn_mic_send">مائیک بھیجیں</string>
+    <string name="btn_mic_recv">مائیک وصول</string>
+    <string name="btn_cam_front_send">فرنٹ کیمرا بھیجیں</string>
+    <string name="btn_cam_front_recv">فرنٹ کیمرا وصول</string>
+    <string name="btn_storage_send">اسٹوریج بھیجیں</string>
+    <string name="btn_storage_recv">اسٹوریج وصول</string>
+    <string name="btn_sys_send">سسٹم ساؤنڈ بھیجیں</string>
+    <string name="btn_sys_recv">سسٹم ساؤنڈ وصول</string>
+    <string name="btn_combo_send">کمبو بھیجیں</string>
+    <string name="btn_combo_recv">کمبو وصول</string>
+    <string name="feature_active">فیچر: %1$s</string>
+    <string name="pick_peer_first">پہلے فہرست سے ڈیوائس منتخب کریں (یا دوسرے فون پر سننا شروع کریں)۔</string>
+    <string name="cam_coming">کیمرا سٹریم شروع — دونوں فون ایک ہی نیٹ ورک پر رکھیں۔</string>
+    <string name="storage_coming">اسٹوریج موڈ فعال — دونوں فون منسلک رکھیں۔</string>
+</resources>
