@@ -7,10 +7,12 @@ object Protocol {
     const val PORT_AUDIO = 45455
     const val PORT_FILE = 45456
     const val PORT_CAMERA = 45457
+    const val PORT_CTRL = 45458
     const val T_AUDIO = 1
     const val T_HELLO = 2
     const val T_CAMERA = 3
     const val T_FILE = 4
+    const val T_CTRL = 5
 
     const val STREAM_SYSTEM = "SYSTEM"
     const val STREAM_MIC = "MIC"
