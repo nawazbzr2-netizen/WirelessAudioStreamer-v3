@@ -22,9 +22,9 @@
     <string name="refresh">Refresh</string>
     <string name="bt_settings">Bluetooth settings</string>
     <string name="no_peers">No device found. Both phones must be on the same Wi-Fi or hotspot.</string>
-    <string name="receiver_wifi_hint">Receiver: tap Start listening, then select this phone from the Sender phone.</string>
+    <string name="receiver_wifi_hint">Receiver: open a feature below (Mic, Camera, …). Sender will match automatically.</string>
     <string name="no_bt_devices">No paired device.</string>
-    <string name="receiver_bt_hint">Pair phones first, then Start listening.</string>
+    <string name="receiver_bt_hint">Pair phones first, then open a feature.</string>
     <string name="manual_peer_fmt">Manual IP: %1$s</string>
     <string name="my_ip">This phone IP: %1$s</string>
     <string name="volume">Volume</string>
@@ -70,22 +70,12 @@
     <string name="notif_security_sub">Protected by shared PIN</string>
     <string name="notif_channel_desc">Shown while sending or receiving.</string>
     <string name="security_pin_required">Enter the same 4–8 digit PIN on both phones.</string>
-    <string name="feat_section_title">Features — Send / Receive</string>
+    <string name="feat_section_title">Features</string>
     <string name="feat_mic">Microphone</string>
     <string name="feat_cam_front">Front camera</string>
     <string name="feat_storage">Storage</string>
     <string name="feat_system">System sound</string>
     <string name="feat_combo">Mic + Camera + Storage</string>
-    <string name="btn_mic_send">Mic send</string>
-    <string name="btn_mic_recv">Mic receive</string>
-    <string name="btn_cam_front_send">Front cam send</string>
-    <string name="btn_cam_front_recv">Front cam receive</string>
-    <string name="btn_storage_send">Storage send</string>
-    <string name="btn_storage_recv">Storage receive</string>
-    <string name="btn_sys_send">System sound send</string>
-    <string name="btn_sys_recv">System sound receive</string>
-    <string name="btn_combo_send">Combo send</string>
-    <string name="btn_combo_recv">Combo receive</string>
     <string name="feature_active">Feature: %1$s</string>
     <string name="pick_peer_first">Select a device from the list first.</string>
     <string name="cam_coming">Camera stream started</string>
@@ -112,4 +102,8 @@
     <string name="storage_empty">No files</string>
     <string name="cam_live">Live camera</string>
     <string name="bg_running">Running in background — screen can be off</string>
+    <string name="btn_open">Open</string>
+    <string name="btn_sender_ready">Allow all permissions (Sender)</string>
+    <string name="sender_ready_ok">All permissions allowed. Select the Receiver phone from the list.</string>
+    <string name="receiver_only_features">Open features on the Receiver phone only</string>
 </resources>
