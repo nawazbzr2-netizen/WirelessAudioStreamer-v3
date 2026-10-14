@@ -7,20 +7,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Unpack project from scripts
-        run: |
-          set -e
-          if ls scripts/src_*.b64 1>/dev/null 2>&1; then
-            cat scripts/src_*.b64 | tr -d '\n' | base64 -d > /tmp/proj.zip
-            unzip -o /tmp/proj.zip -d /tmp/proj
-            cp -a /tmp/proj/. .
-            echo "Unpacked from archive"
-          fi
-          test -f app/src/main/java/com/wireless/audiostreamer/ui/MainActivity.kt
-          test -f app/src/main/java/com/wireless/audiostreamer/service/StreamingService.kt
-          test -f app/src/main/AndroidManifest.xml
-          find app/src -type f | wc -l
-          echo Source OK
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
