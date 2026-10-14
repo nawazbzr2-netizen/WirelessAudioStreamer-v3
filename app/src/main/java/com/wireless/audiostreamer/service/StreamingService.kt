@@ -55,6 +55,7 @@ class StreamingService : Service() {
     companion object {
         const val ACTION_START = "com.wireless.audiostreamer.START"
         const val ACTION_STOP = "com.wireless.audiostreamer.STOP"
+        const val ACTION_STOP_FEATURE = "com.wireless.audiostreamer.STOP_FEATURE"
         const val ACTION_STATUS = "com.wireless.audiostreamer.STATUS"
         const val EXTRA_ROLE = "role"
         const val EXTRA_MODE = "mode"
@@ -69,6 +70,7 @@ class StreamingService : Service() {
         const val EXTRA_TEXT = "text"
         const val MODE_WIFI = "WIFI"
         const val MODE_BT = "BT"
+        const val MODE_INTERNET = "INTERNET"
         private const val CHANNEL_ID = "streaming_channel"
         private const val NOTIFICATION_ID = 1
         private const val PEER_TIMEOUT_MS = 6000L
@@ -129,12 +131,16 @@ class StreamingService : Service() {
             stopEverything(null, false)
             return START_NOT_STICKY
         }
+        if (intent.action == ACTION_STOP_FEATURE) {
+            stopFeatureOnly()
+            return START_STICKY
+        }
         if (intent.action == ACTION_START) {
             if (active) teardown()
             finished = false
             begin(intent)
         }
-        return START_NOT_STICKY
+        return START_STICKY
     }
 
     override fun onDestroy() {
@@ -204,11 +210,20 @@ class StreamingService : Service() {
             proj.registerCallback(cb, main)
             projection = proj; projCallback = cb
         }
-        if (mode == MODE_WIFI) {
-            if (!NetUtil.isPrivateIp(peerIp)) { stopEverything(getString(R.string.status_start_failed), true); return false }
+        if (mode == MODE_WIFI || mode == MODE_INTERNET) {
+            if (mode == MODE_WIFI && !NetUtil.isPrivateIp(peerIp)) {
+                stopEverything(getString(R.string.status_start_failed), true); return false
+            }
+            if (mode == MODE_INTERNET && peerIp.isBlank()) {
+                stopEverything(getString(R.string.status_start_failed), true); return false
+            }
             peerAddr = InetAddress.getByName(peerIp)
             udpOut = UdpOut(this)
-            discovery = DiscoveryHelper(this, cipher!!).also { it.start(AppPrefs.deviceName(), AppPrefs.ROLE_SENDER, peerIp) }
+            if (mode == MODE_WIFI) {
+                discovery = DiscoveryHelper(this, cipher!!).also {
+                    it.start(AppPrefs.deviceName(), AppPrefs.ROLE_SENDER, peerIp)
+                }
+            }
         } else {
             val adapter = btAdapter()
             if (adapter == null || !adapter.isEnabled || btAddr == null) {
@@ -246,12 +261,18 @@ class StreamingService : Service() {
         val pl = LowLatencyPlayer(jb)
         player = pl
         pl.start(1)
-        if (mode == MODE_WIFI) {
-            discovery = DiscoveryHelper(this, cipher!!).also { it.start(AppPrefs.deviceName(), AppPrefs.ROLE_RECEIVER, "") }
+        if (mode == MODE_WIFI || mode == MODE_INTERNET) {
+            if (mode == MODE_WIFI) {
+                discovery = DiscoveryHelper(this, cipher!!).also {
+                    it.start(AppPrefs.deviceName(), AppPrefs.ROLE_RECEIVER, "")
+                }
+            }
             thread(isDaemon = true, name = "was-udp-rx") { udpReceiveLoop() }
         } else {
             val adapter = btAdapter()
-            if (adapter == null || !adapter.isEnabled) { stopEverything(getString(R.string.status_bt_off), true); return false }
+            if (adapter == null || !adapter.isEnabled) {
+                stopEverything(getString(R.string.status_bt_off), true); return false
+            }
             bt = BluetoothTransport(adapter).also { it.startServer(btListener) }
         }
         if (streamType == Protocol.STREAM_CAMERA_BACK || streamType == Protocol.STREAM_CAMERA_FRONT) startCameraReceive()
@@ -265,17 +286,23 @@ class StreamingService : Service() {
         override fun onFrame(buf: ByteArray, len: Int) { if (role == AppPrefs.ROLE_RECEIVER) handleFrame(buf, len, null) }
     }
 
-    private fun peerReady(): Boolean = if (mode == MODE_WIFI) {
-        val d = discovery ?: return false
-        System.currentTimeMillis() - d.lastSeen(peerIp) < PEER_TIMEOUT_MS
-    } else btConnected
+    private fun peerReady(): Boolean = when {
+        mode == MODE_INTERNET -> true
+        mode == MODE_WIFI -> {
+            val d = discovery ?: return false
+            System.currentTimeMillis() - d.lastSeen(peerIp) < PEER_TIMEOUT_MS
+        }
+        else -> btConnected
+    }
 
     private fun onCaptured(pcm: ShortArray) {
         if (!active || !peerReady()) return
         val c = cipher ?: return
         val frame = c.seal(Protocol.T_AUDIO, session, seq++, Protocol.buildAudioPlain(pcm, channels))
-        if (mode == MODE_WIFI) { val a = peerAddr ?: return; udpOut?.send(frame, frame.size, a, Protocol.PORT_AUDIO) }
-        else bt?.send(frame)
+        if (mode == MODE_WIFI || mode == MODE_INTERNET) {
+            val a = peerAddr ?: return
+            udpOut?.send(frame, frame.size, a, Protocol.PORT_AUDIO)
+        } else bt?.send(frame)
     }
 
     private fun startCameraSend() {
@@ -285,7 +312,7 @@ class StreamingService : Service() {
     }
 
     private fun sendCameraFrame(jpeg: ByteArray) {
-        if (!active || mode != MODE_WIFI || peerIp.isBlank()) return
+        if (!active || (mode != MODE_WIFI && mode != MODE_INTERNET) || peerIp.isBlank()) return
         thread(isDaemon = true, name = "was-cam-tx") {
             try {
                 var s = camSocket
@@ -390,7 +417,8 @@ class StreamingService : Service() {
             } else getString(if (hadPeer) R.string.status_peer_lost else R.string.status_waiting_peer)
         } else {
             connected = System.currentTimeMillis() - lastAudioMs < AUDIO_TIMEOUT_MS ||
-                streamType == Protocol.STREAM_CAMERA_BACK || streamType == Protocol.STREAM_STORAGE
+                streamType == Protocol.STREAM_CAMERA_BACK || streamType == Protocol.STREAM_STORAGE ||
+                mode == MODE_INTERNET
             text = when {
                 connected -> getString(R.string.status_connected, lastFrom.ifBlank { "OK" })
                 authFail >= 15 -> getString(R.string.status_wrong_pin)
@@ -409,6 +437,25 @@ class StreamingService : Service() {
         sendBroadcast(Intent(ACTION_STATUS).setPackage(packageName)
             .putExtra(EXTRA_RUNNING, running).putExtra(EXTRA_CONNECTED, connected)
             .putExtra(EXTRA_ERROR, error).putExtra(EXTRA_TEXT, text))
+    }
+
+    private fun stopFeatureOnly() {
+        try { micCapturer?.stop() } catch (e: Exception) {}
+        micCapturer = null
+        try { cameraStreamer?.stop() } catch (e: Exception) {}
+        cameraStreamer = null
+        try { camSocket?.close() } catch (e: Exception) {}
+        camSocket = null
+        try { capturer?.stop() } catch (e: Exception) {}
+        capturer = null
+        player?.stop()
+        player = null
+        jitter = null
+        lastAudioMs = 0L
+        shownText = ""
+        val msg = getString(R.string.status_idle_connected)
+        publish(true, msg, false)
+        updateNotification(msg)
     }
 
     private fun stopEverything(finalText: String?, error: Boolean) {
