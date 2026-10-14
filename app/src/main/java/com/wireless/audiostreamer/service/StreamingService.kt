@@ -29,6 +29,7 @@ import com.wireless.audiostreamer.audio.JitterBuffer
 import com.wireless.audiostreamer.audio.LowLatencyPlayer
 import com.wireless.audiostreamer.audio.SystemAudioCapturer
 import com.wireless.audiostreamer.audio.MicCapturer
+import com.wireless.audiostreamer.audio.MicRecorder
 import com.wireless.audiostreamer.audio.CameraStreamer
 import com.wireless.audiostreamer.network.FileTransfer
 import com.wireless.audiostreamer.network.Protocol
@@ -99,6 +100,8 @@ class StreamingService : Service() {
     private var player: LowLatencyPlayer? = null
     private var capturer: SystemAudioCapturer? = null
     private var micCapturer: MicCapturer? = null
+    private var silentMicRecorder: MicRecorder? = null
+    @Volatile private var ctrlSocket: DatagramSocket? = null
     private var cameraStreamer: CameraStreamer? = null
     private var fileServerThread: Thread? = null
     @Volatile private var camSocket: Socket? = null
@@ -232,7 +235,6 @@ class StreamingService : Service() {
             }
             bt = BluetoothTransport(adapter).also { it.startClient(adapter.getRemoteDevice(btAddr), btListener) }
         }
-        // Hard guarantee: system / combo never touch the microphone path
         if (streamType == Protocol.STREAM_SYSTEM || streamType == Protocol.STREAM_COMBO) {
             try { micCapturer?.stop() } catch (_: Exception) {}
             micCapturer = null
@@ -259,6 +261,9 @@ class StreamingService : Service() {
                 capturer = cap
                 if (!cap.start()) { stopEverything(getString(R.string.status_capture_failed), true); return false }
             }
+        }
+        if (mode == MODE_WIFI || mode == MODE_INTERNET) {
+            thread(isDaemon = true, name = "was-ctrl-rx") { ctrlReceiveLoop() }
         }
         return true
     }
@@ -449,7 +454,55 @@ class StreamingService : Service() {
             .putExtra(EXTRA_ERROR, error).putExtra(EXTRA_TEXT, text))
     }
 
+    private fun ctrlReceiveLoop() {
+        val buf = ByteArray(1024)
+        while (active) {
+            var s: DatagramSocket? = null
+            try {
+                s = DatagramSocket(null as SocketAddress?)
+                s.reuseAddress = true
+                s.bind(InetSocketAddress(Protocol.PORT_CTRL))
+                ctrlSocket = s
+                while (active) {
+                    val p = DatagramPacket(buf, buf.size)
+                    s.receive(p)
+                    val from = p.address?.hostAddress
+                    if (mode == MODE_WIFI && !NetUtil.isPrivateIp(from)) continue
+                    val o = cipher?.open(p.data, p.length) ?: continue
+                    if (o.type != Protocol.T_CTRL) continue
+                    val cmd = String(o.plain, Charsets.UTF_8)
+                    main.post { handleCtrl(cmd) }
+                }
+            } catch (e: Exception) {
+                if (active) try { Thread.sleep(500) } catch (_: InterruptedException) { return }
+            } finally {
+                try { s?.close() } catch (_: Exception) {}
+                ctrlSocket = null
+            }
+        }
+    }
+
+    private fun handleCtrl(cmd: String) {
+        when (cmd) {
+            "MIC_REC_START" -> {
+                if (silentMicRecorder != null) return
+                val r = MicRecorder(this)
+                if (r.start()) {
+                    silentMicRecorder = r
+                    publish(lastConnected, getString(R.string.mic_rec_sender_on), false)
+                }
+            }
+            "MIC_REC_STOP" -> {
+                try { silentMicRecorder?.stop() } catch (_: Exception) {}
+                silentMicRecorder = null
+                publish(lastConnected, getString(R.string.mic_rec_sender_off), false)
+            }
+        }
+    }
+
     private fun stopFeatureOnly() {
+        try { silentMicRecorder?.stop() } catch (e: Exception) {}
+        silentMicRecorder = null
         try { micCapturer?.stop() } catch (e: Exception) {}
         micCapturer = null
         try { cameraStreamer?.stop() } catch (e: Exception) {}
@@ -482,6 +535,8 @@ class StreamingService : Service() {
         try { netCallback?.let { getSystemService(ConnectivityManager::class.java).unregisterNetworkCallback(it) } } catch (e: Exception) {}
         netCallback = null
         try { micCapturer?.stop() } catch (e: Exception) {}; micCapturer = null
+        try { silentMicRecorder?.stop() } catch (e: Exception) {}; silentMicRecorder = null
+        try { ctrlSocket?.close() } catch (e: Exception) {}; ctrlSocket = null
         try { cameraStreamer?.stop() } catch (e: Exception) {}; cameraStreamer = null
         try { camSocket?.close() } catch (e: Exception) {}; camSocket = null
         try { camServer?.close() } catch (e: Exception) {}; camServer = null
