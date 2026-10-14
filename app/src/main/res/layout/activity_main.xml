@@ -234,6 +234,26 @@
                 android:layout_marginTop="16dp" android:text="@string/disconnect" android:visibility="gone" />
 
             <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="16dp" android:text="@string/feat_internet"
+                android:textStyle="bold" android:textSize="15sp" />
+            <EditText android:id="@+id/etRemoteHost"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:hint="@string/internet_host_hint"
+                android:inputType="textUri" android:maxLines="1" />
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="horizontal">
+                <com.google.android.material.button.MaterialButton android:id="@+id/btnInternet"
+                    style="@style/Widget.Material3.Button.TonalButton"
+                    android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:layout_marginEnd="4dp"
+                    android:text="@string/btn_internet_connect" />
+                <com.google.android.material.button.MaterialButton android:id="@+id/btnInternetStop"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:text="@string/btn_stop" />
+            </LinearLayout>
+
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:layout_marginTop="24dp" android:text="@string/volume" android:textSize="14sp" />
             <SeekBar android:id="@+id/seekVolume" android:layout_width="match_parent" android:layout_height="wrap_content" />
         </LinearLayout>
