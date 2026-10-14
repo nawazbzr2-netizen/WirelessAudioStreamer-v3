@@ -46,12 +46,6 @@ import java.net.SocketAddress
 import java.security.SecureRandom
 import kotlin.concurrent.thread
 
-/**
- * Foreground service that runs the whole pipeline.
- *  - SENDER:   MediaProjection -> AudioPlaybackCapture -> ADPCM -> AES-GCM -> UDP / Bluetooth
- *  - RECEIVER: UDP / Bluetooth -> AES-GCM -> ADPCM -> jitter buffer -> AudioTrack
- * The foreground-service type is chosen per role (mediaProjection / mediaPlayback) as Android 14+ requires.
- */
 class StreamingService : Service() {
 
     companion object {
@@ -106,6 +100,7 @@ class StreamingService : Service() {
     private var jitter: JitterBuffer? = null
     private var player: LowLatencyPlayer? = null
     private var capturer: SystemAudioCapturer? = null
+    private var micCapturer: MicCapturer? = null
     private var projection: MediaProjection? = null
     private var projCallback: MediaProjection.Callback? = null
 
@@ -157,8 +152,6 @@ class StreamingService : Service() {
         super.onDestroy()
     }
 
-    // ------------------------------------------------------------------ start
-
     private fun begin(intent: Intent) {
         role = intent.getStringExtra(EXTRA_ROLE) ?: AppPrefs.role(this)
         mode = intent.getStringExtra(EXTRA_MODE) ?: MODE_WIFI
@@ -191,7 +184,6 @@ class StreamingService : Service() {
         shownText = ""
         publish(false, getString(R.string.status_starting), false)
 
-        // Security: refuse to run without a valid shared PIN (4–8 digits)
         val pin = AppPrefs.pin(this)
         if (pin.length < 4 || pin.length > 8 || !pin.all { it.isDigit() }) {
             stopEverything(getString(R.string.pin_invalid), true)
@@ -268,7 +260,6 @@ class StreamingService : Service() {
                 }
             }
             Protocol.STREAM_COMBO -> {
-                // Combo: mic audio path for now; camera/storage signaled via notification
                 val mic = MicCapturer(channels) { pcm -> onCaptured(pcm) }
                 micCapturer = mic
                 if (!mic.start()) {
@@ -277,8 +268,7 @@ class StreamingService : Service() {
                 }
             }
             Protocol.STREAM_CAMERA_FRONT, Protocol.STREAM_CAMERA_BACK, Protocol.STREAM_STORAGE -> {
-                // Camera / storage: connection stays up; payload path can be extended.
-                // Keep service alive with status so UI shows active feature.
+                // keep connection alive
             }
             else -> {
                 val proj = projection
@@ -333,8 +323,6 @@ class StreamingService : Service() {
         }
     }
 
-    // ------------------------------------------------------------------ sender path
-
     private fun peerReady(): Boolean {
         return if (mode == MODE_WIFI) {
             val d = discovery ?: return false
@@ -355,8 +343,6 @@ class StreamingService : Service() {
             bt?.send(frame)
         }
     }
-
-    // ------------------------------------------------------------------ receiver path
 
     private fun udpReceiveLoop() {
         val buf = ByteArray(4096)
@@ -408,8 +394,6 @@ class StreamingService : Service() {
         lastFrom = fromIp ?: "Bluetooth"
         authFail = 0
     }
-
-    // ------------------------------------------------------------------ status
 
     private fun startTicker() {
         ticker = thread(isDaemon = true, name = "was-ticker") {
@@ -475,8 +459,6 @@ class StreamingService : Service() {
         )
     }
 
-    // ------------------------------------------------------------------ stop
-
     private fun stopEverything(finalText: String?, error: Boolean) {
         if (finished) return
         finished = true
@@ -496,13 +478,15 @@ class StreamingService : Service() {
         } catch (e: Exception) { }
         netCallback = null
 
-        micCapturer?.stop(); micCapturer = null; capturer?.stop()
+        try { micCapturer?.stop() } catch (e: Exception) { }
+        micCapturer = null
+        try { capturer?.stop() } catch (e: Exception) { }
         capturer = null
         val proj = projection
         val cb = projCallback
         if (proj != null) {
             try {
-                if (cb != null) proj.unregisterCallback(cb) // avoid re-entering onStop()
+                if (cb != null) proj.unregisterCallback(cb)
                 proj.stop()
             } catch (e: Exception) { }
         }
@@ -520,112 +504,80 @@ class StreamingService : Service() {
         bt = null
         udpOut?.reset()
         udpOut = null
-        btConnected = false
+        cipher = null
         releaseLocks()
-    }
-
-    // ------------------------------------------------------------------ network / locks
-
-    private fun registerNetworkCallback() {
-        val cm = getSystemService(ConnectivityManager::class.java) ?: return
-        val cb = object : ConnectivityManager.NetworkCallback() {
-            override fun onAvailable(network: Network) {
-                udpOut?.reset()
-                discovery?.resetNetwork()
-            }
-
-            override fun onLost(network: Network) {
-                udpOut?.reset()
-                discovery?.resetNetwork()
-            }
-        }
-        try {
-            cm.registerNetworkCallback(
-                NetworkRequest.Builder().addTransportType(NetworkCapabilities.TRANSPORT_WIFI).build(), cb
-            )
-            netCallback = cb
-        } catch (e: Exception) {
-        }
     }
 
     private fun acquireLocks() {
         try {
             val pm = getSystemService(PowerManager::class.java)
-            wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "was:stream").apply {
-                setReferenceCounted(false)
-                acquire()
-            }
-            val wm = applicationContext.getSystemService(WifiManager::class.java)
-            if (wm != null) {
-                wifiLock = wm.createWifiLock(WifiManager.WIFI_MODE_FULL_LOW_LATENCY, "was:wifi").apply {
-                    setReferenceCounted(false)
-                    acquire()
-                }
-                multicastLock = wm.createMulticastLock("was:multicast").apply {
-                    setReferenceCounted(false)
-                    acquire()
-                }
-            }
-        } catch (e: Exception) {
-        }
+            wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "was:wake").apply { acquire() }
+        } catch (e: Exception) { }
+        try {
+            val wm = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+            wifiLock = wm.createWifiLock(WifiManager.WIFI_MODE_FULL_LOW_LATENCY, "was:wifi").apply { acquire() }
+            multicastLock = wm.createMulticastLock("was:mcast").apply { acquire() }
+        } catch (e: Exception) { }
     }
 
     private fun releaseLocks() {
-        try { if (wakeLock?.isHeld == true) wakeLock?.release() } catch (e: Exception) { }
-        try { if (wifiLock?.isHeld == true) wifiLock?.release() } catch (e: Exception) { }
-        try { if (multicastLock?.isHeld == true) multicastLock?.release() } catch (e: Exception) { }
+        try { wakeLock?.release() } catch (e: Exception) { }
         wakeLock = null
+        try { wifiLock?.release() } catch (e: Exception) { }
         wifiLock = null
+        try { multicastLock?.release() } catch (e: Exception) { }
         multicastLock = null
     }
 
-    // ------------------------------------------------------------------ notification
+    private fun registerNetworkCallback() {
+        try {
+            val cm = getSystemService(ConnectivityManager::class.java)
+            val req = NetworkRequest.Builder()
+                .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+                .build()
+            val cb = object : ConnectivityManager.NetworkCallback() {
+                override fun onAvailable(network: Network) {
+                    udpOut?.reset()
+                }
+                override fun onLost(network: Network) {
+                    udpOut?.reset()
+                }
+            }
+            cm.registerNetworkCallback(req, cb)
+            netCallback = cb
+        } catch (e: Exception) { }
+    }
 
     private fun createChannel() {
         val nm = getSystemService(NotificationManager::class.java)
-        // High enough importance so the ongoing "mic/capture active" notification stays visible
-        val ch = NotificationChannel(
-            CHANNEL_ID, getString(R.string.notif_channel), NotificationManager.IMPORTANCE_DEFAULT
-        )
-        ch.description = getString(R.string.notif_channel_desc)
+        val ch = NotificationChannel(CHANNEL_ID, getString(R.string.notif_channel), NotificationManager.IMPORTANCE_LOW)
         ch.setShowBadge(false)
-        ch.lockscreenVisibility = Notification.VISIBILITY_PUBLIC
         nm.createNotificationChannel(ch)
     }
 
     private fun buildNotification(text: String): Notification {
         val open = PendingIntent.getActivity(
-            this, 0,
-            Intent(this, MainActivity::class.java)
-                .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP),
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            this, 0, Intent(this, MainActivity::class.java),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val stop = PendingIntent.getService(
             this, 1,
             Intent(this, StreamingService::class.java).setAction(ACTION_STOP),
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        // Persistent notification while audio capture / streaming is active (cannot swipe away)
         return NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle(getString(R.string.app_name))
+            .setContentText(text)
             .setSmallIcon(R.drawable.ic_stat_audio)
-            .setContentTitle(getString(R.string.notif_title_active))
-            .setContentText(text.ifEmpty { getString(R.string.notif_capture_active) })
-            .setSubText(getString(R.string.notif_security_sub))
+            .setContentIntent(open)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
-            .setCategory(NotificationCompat.CATEGORY_SERVICE)
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
-            .setContentIntent(open)
-            .addAction(0, getString(R.string.notif_stop), stop)
+            .addAction(0, getString(R.string.disconnect), stop)
             .build()
     }
 
     private fun updateNotification(text: String) {
-        try {
-            getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, buildNotification(text))
-        } catch (e: Exception) {
-        }
+        val nm = getSystemService(NotificationManager::class.java)
+        nm.notify(NOTIFICATION_ID, buildNotification(text))
     }
 }
