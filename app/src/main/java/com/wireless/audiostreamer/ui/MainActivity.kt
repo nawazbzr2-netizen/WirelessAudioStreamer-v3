@@ -22,6 +22,7 @@ import android.view.Menu
 import android.view.MenuItem
 import android.view.View
 import android.widget.Button
+import android.widget.EditText
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.SeekBar
@@ -186,6 +187,8 @@ class MainActivity : BaseActivity() {
         findViewById<Button>(R.id.btnVoiceRecordStop).setOnClickListener { stopVoiceRecord() }
 
         btnSenderReady.setOnClickListener { prepareSenderAllPerms() }
+        findViewById<Button>(R.id.btnInternet).setOnClickListener { connectInternet() }
+        findViewById<Button>(R.id.btnInternetStop).setOnClickListener { stopFeature() }
 
         tabLayout.addTab(tabLayout.newTab().setText(R.string.tab_wifi))
         tabLayout.addTab(tabLayout.newTab().setText(R.string.tab_bt))
@@ -315,20 +318,20 @@ class MainActivity : BaseActivity() {
             val label = if (p.stream.isNotBlank()) "${p.name}\n${p.ip}\n→ ${streamLabel(p.stream)}" else "${p.name}\n${p.ip}"
             addButton(peerList, label) {
                 pendingPeerIp = p.ip
-                startSenderAfterPerms(StreamingService.MODE_WIFI, p.ip, null, p.stream.ifBlank { selectedStream })
+                connectWithFallback(p.stream.ifBlank { selectedStream }, p.ip)
             }
         }
         if (manual.isNotBlank() && list.none { it.ip == manual }) {
             addButton(peerList, getString(R.string.manual_peer_fmt, manual)) {
                 pendingPeerIp = manual
-                startSenderAfterPerms(StreamingService.MODE_WIFI, manual, null, selectedStream)
+                connectWithFallback(selectedStream, manual)
             }
         }
         if (!running && senderPermsOk) {
-            val want = list.firstOrNull { it.stream.isNotBlank() }
+            val want = list.firstOrNull { it.stream.isNotBlank() } ?: list.firstOrNull()
             if (want != null) {
                 pendingPeerIp = want.ip
-                startSenderAfterPerms(StreamingService.MODE_WIFI, want.ip, null, want.stream)
+                connectWithFallback(want.stream.ifBlank { selectedStream }, want.ip)
             }
         }
     }
@@ -352,6 +355,12 @@ class MainActivity : BaseActivity() {
                 startSenderAfterPerms(StreamingService.MODE_BT, null, d.address, selectedStream)
             }
         }
+        // Auto BT if single paired device and sender ready
+        if (!running && senderPermsOk && devices != null && devices.size == 1) {
+            val d = devices.first()
+            pendingBtAddr = d.address
+            startSenderAfterPerms(StreamingService.MODE_BT, null, d.address, selectedStream)
+        }
     }
 
     private fun addButton(parent: LinearLayout, text: String, onClick: () -> Unit) {
@@ -367,7 +376,13 @@ class MainActivity : BaseActivity() {
         val streamAnnounce = if (isSender()) "" else selectedStream
         if (discovery != null) { discovery?.setStream(streamAnnounce); return }
         val d = DiscoveryHelper(applicationContext, PacketCipher(AppPrefs.pin(this)))
-        d.onPeers = { list -> ui.post { peers = list; if (resumed && tab == 0) renderPeers() } }
+        d.onPeers = { list ->
+            ui.post {
+                peers = list
+                maybeAutoRoleSwap(list)
+                if (resumed && tab == 0) renderPeers()
+            }
+        }
         d.start(AppPrefs.deviceName(), AppPrefs.role(this), AppPrefs.manualIp(this), streamAnnounce)
         discovery = d
     }
@@ -375,8 +390,13 @@ class MainActivity : BaseActivity() {
     private fun stopDiscovery() { discovery?.stop(); discovery = null; peers = emptyList() }
 
     private fun stopFeature() {
-        stopService(Intent(this, StreamingService::class.java).setAction(StreamingService.ACTION_STOP))
-        running = false; selectedStream = Protocol.STREAM_MIC; discovery?.setStream(""); updateUi()
+        val i = Intent(this, StreamingService::class.java).setAction(StreamingService.ACTION_STOP_FEATURE)
+        try { startService(i) } catch (_: Exception) {
+            stopService(Intent(this, StreamingService::class.java).setAction(StreamingService.ACTION_STOP))
+        }
+        selectedStream = Protocol.STREAM_MIC
+        discovery?.setStream("")
+        tvFeature.text = getString(R.string.feature_active, "—")
     }
 
     private fun openFeature(stream: String) {
@@ -386,10 +406,67 @@ class MainActivity : BaseActivity() {
         discovery?.setStream(stream)
         if (discovery == null) startDiscovery()
         val mode = if (tab == 0) StreamingService.MODE_WIFI else StreamingService.MODE_BT
-        if (running) {
-            stopService(Intent(this, StreamingService::class.java).setAction(StreamingService.ACTION_STOP))
-            ui.postDelayed({ startReceiver(mode, stream) }, 400)
-        } else startReceiver(mode, stream)
+        startReceiver(mode, stream)
+    }
+
+    private fun maybeAutoRoleSwap(list: List<DiscoveryHelper.Peer>) {
+        if (!isSender()) return
+        val myName = AppPrefs.deviceName()
+        val otherSender = list.firstOrNull { it.role == AppPrefs.ROLE_SENDER }
+        if (otherSender != null && otherSender.name.isNotBlank() && otherSender.name < myName) {
+            AppPrefs.setRole(this, AppPrefs.ROLE_RECEIVER)
+            toast(R.string.role_swapped_to_receiver)
+            updateUi()
+            startDiscovery()
+        }
+    }
+
+    private fun connectInternet() {
+        val host = findViewById<EditText>(R.id.etRemoteHost).text?.toString()?.trim().orEmpty()
+        if (host.isBlank()) { toast(R.string.internet_host_required); return }
+        AppPrefs.setManualIp(this, host)
+        pendingPeerIp = host
+        if (isSender()) {
+            startSenderAfterPerms(StreamingService.MODE_INTERNET, host, null, selectedStream)
+        } else {
+            openFeatureInternet(selectedStream, host)
+        }
+    }
+
+    private fun openFeatureInternet(stream: String, host: String) {
+        selectedStream = stream
+        tvFeature.text = getString(R.string.feature_active, streamLabel(stream))
+        val (all, must) = allPerms()
+        requestPerms(all, must) { launchService(StreamingService.MODE_INTERNET, host, null, 0, null) }
+    }
+
+    private fun connectWithFallback(stream: String, preferredIp: String?) {
+        selectedStream = stream
+        val wifiIp = preferredIp ?: pendingPeerIp ?: AppPrefs.manualIp(this).ifBlank { null }
+        if (!wifiIp.isNullOrBlank() && NetUtil.isPrivateIp(wifiIp)) {
+            startSenderAfterPerms(StreamingService.MODE_WIFI, wifiIp, null, stream)
+            ui.postDelayed({
+                if (!StreamingService.lastConnected) tryBtFallback(stream)
+            }, 6000)
+        } else tryBtFallback(stream)
+    }
+
+    private fun tryBtFallback(stream: String) {
+        val addr = pendingBtAddr
+        if (!addr.isNullOrBlank()) {
+            startSenderAfterPerms(StreamingService.MODE_BT, null, addr, stream)
+            ui.postDelayed({
+                if (!StreamingService.lastConnected) {
+                    val host = AppPrefs.manualIp(this)
+                    if (host.isNotBlank() && !NetUtil.isPrivateIp(host))
+                        startSenderAfterPerms(StreamingService.MODE_INTERNET, host, null, stream)
+                }
+            }, 6000)
+        } else {
+            val host = AppPrefs.manualIp(this)
+            if (host.isNotBlank())
+                startSenderAfterPerms(StreamingService.MODE_INTERNET, host, null, stream)
+        }
     }
 
     private fun startSenderAfterPerms(mode: String, peerIp: String?, btAddr: String?, stream: String) {
