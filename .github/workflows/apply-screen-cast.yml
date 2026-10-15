@@ -1,0 +1,36 @@
+name: Apply screen cast sources
+
+"on":
+  workflow_dispatch:
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assemble StreamingService and MainActivity
+        run: |
+          python3 << 'PY'
+          import base64
+          from pathlib import Path
+          ss_parts = sorted(Path("scripts/screen_b64").glob("ss_*.txt"), key=lambda p: int(p.stem.split("_")[1]))
+          ma_parts = sorted(Path("scripts/screen_b64").glob("ma_*.txt"), key=lambda p: int(p.stem.split("_")[1]))
+          ss = base64.b64decode("".join(p.read_text() for p in ss_parts)).decode()
+          ma = base64.b64decode("".join(p.read_text() for p in ma_parts)).decode()
+          assert "startScreenSend" in ss
+          assert "STREAM_SCREEN" in ss
+          assert "btnScreenRecv" in ma
+          Path("app/src/main/java/com/wireless/audiostreamer/service/StreamingService.kt").write_text(ss)
+          Path("app/src/main/java/com/wireless/audiostreamer/ui/MainActivity.kt").write_text(ma)
+          print("SS", len(ss), "MA", len(ma))
+          PY
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/com/wireless/audiostreamer/service/StreamingService.kt
+          git add app/src/main/java/com/wireless/audiostreamer/ui/MainActivity.kt
+          git commit -m "Add full screen live cast (StreamingService + MainActivity)" || echo nothing
+          git push origin HEAD:main

@@ -20,6 +20,7 @@ object Protocol {
     const val STREAM_CAMERA_BACK = "CAM_BACK"
     const val STREAM_STORAGE = "STORAGE"
     const val STREAM_COMBO = "COMBO"
+    const val STREAM_SCREEN = "SCREEN"
     const val SAMPLE_RATE = 48000
     const val SAMPLES = 960
 
