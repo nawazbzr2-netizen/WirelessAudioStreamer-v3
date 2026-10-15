@@ -352,6 +352,20 @@ class StreamingService : Service() {
         mic.start()
     }
 
+
+    private fun startScreenSend() {
+        val proj = projection
+        if (proj == null) {
+            stopEverything(getString(R.string.status_capture_failed), true)
+            return
+        }
+        val streamer = ScreenStreamer(this, proj) { jpeg -> sendCameraFrame(jpeg) }
+        screenStreamer = streamer
+        if (!streamer.start()) {
+            stopEverything(getString(R.string.status_capture_failed), true)
+        }
+    }
+
     private fun sendCameraFrame(jpeg: ByteArray) {
         if (!active || (mode != MODE_WIFI && mode != MODE_INTERNET) || peerIp.isBlank()) return
         thread(isDaemon = true, name = "was-cam-tx") {
