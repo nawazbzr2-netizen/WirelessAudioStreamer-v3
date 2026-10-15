@@ -3,18 +3,24 @@ package com.wireless.audiostreamer.audio
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.ImageFormat
+import android.graphics.Rect
+import android.graphics.YuvImage
 import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CaptureRequest
+import android.media.Image
 import android.media.ImageReader
 import android.os.Handler
 import android.os.HandlerThread
 import android.util.Size
-import java.nio.ByteBuffer
+import java.io.ByteArrayOutputStream
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 
-/** Streams JPEG frames from front or back camera (~5 fps). */
+/** Streams JPEG frames from front or back camera (~5–6 fps) via YUV → JPEG. */
 class CameraStreamer(
     private val ctx: Context,
     private val useFront: Boolean,
@@ -27,6 +33,7 @@ class CameraStreamer(
     private var handler: Handler? = null
     @Volatile private var running = false
     private var lastMs = 0L
+    private val configured = AtomicBoolean(false)
 
     @SuppressLint("MissingPermission")
     fun start(): Boolean {
@@ -41,25 +48,26 @@ class CameraStreamer(
 
             val chars = cm.getCameraCharacteristics(id)
             val map = chars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP) ?: return false
-            val size = chooseSize(map.getOutputSizes(ImageFormat.JPEG) ?: return false)
+            val yuvSizes = map.getOutputSizes(ImageFormat.YUV_420_888) ?: return false
+            val size = chooseSize(yuvSizes)
 
             val ht = HandlerThread("was-cam").also { it.start() }
             thread = ht
             handler = Handler(ht.looper)
 
-            val ir = ImageReader.newInstance(size.width, size.height, ImageFormat.JPEG, 2)
+            val latch = CountDownLatch(1)
+            val failed = AtomicBoolean(false)
+
+            val ir = ImageReader.newInstance(size.width, size.height, ImageFormat.YUV_420_888, 3)
             ir.setOnImageAvailableListener({ r ->
                 val img = r.acquireLatestImage() ?: return@setOnImageAvailableListener
                 try {
+                    if (!running) return@setOnImageAvailableListener
                     val now = System.currentTimeMillis()
-                    if (now - lastMs < 180) return@setOnImageAvailableListener
+                    if (now - lastMs < 160) return@setOnImageAvailableListener
                     lastMs = now
-                    val planes = img.planes
-                    if (planes.isEmpty()) return@setOnImageAvailableListener
-                    val buf: ByteBuffer = planes[0].buffer
-                    val bytes = ByteArray(buf.remaining())
-                    buf.get(bytes)
-                    if (bytes.isNotEmpty()) onJpeg(bytes)
+                    val jpeg = yuvToJpeg(img, 70) ?: return@setOnImageAvailableListener
+                    if (jpeg.isNotEmpty()) onJpeg(jpeg)
                 } catch (_: Exception) {
                 } finally {
                     try { img.close() } catch (_: Exception) {}
@@ -81,19 +89,44 @@ class CameraStreamer(
                                         val req = cam.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
                                         req.addTarget(ir.surface)
                                         req.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO)
-                                        req.set(CaptureRequest.JPEG_QUALITY, 70.toByte())
+                                        req.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
+                                        req.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
                                         s.setRepeatingRequest(req.build(), null, handler)
-                                    } catch (_: Exception) { stop() }
+                                        configured.set(true)
+                                    } catch (_: Exception) {
+                                        failed.set(true)
+                                    }
+                                    latch.countDown()
                                 }
-                                override fun onConfigureFailed(s: CameraCaptureSession) { stop() }
+                                override fun onConfigureFailed(s: CameraCaptureSession) {
+                                    failed.set(true)
+                                    latch.countDown()
+                                }
                             },
                             handler
                         )
-                    } catch (_: Exception) { stop() }
+                    } catch (_: Exception) {
+                        failed.set(true)
+                        latch.countDown()
+                    }
                 }
-                override fun onDisconnected(cam: CameraDevice) { stop() }
-                override fun onError(cam: CameraDevice, error: Int) { stop() }
+                override fun onDisconnected(cam: CameraDevice) {
+                    failed.set(true)
+                    latch.countDown()
+                    stop()
+                }
+                override fun onError(cam: CameraDevice, error: Int) {
+                    failed.set(true)
+                    latch.countDown()
+                    stop()
+                }
             }, handler)
+
+            val ok = latch.await(6, TimeUnit.SECONDS) && configured.get() && !failed.get()
+            if (!ok) {
+                stop()
+                return false
+            }
             true
         } catch (e: Exception) {
             stop()
@@ -103,6 +136,7 @@ class CameraStreamer(
 
     fun stop() {
         running = false
+        configured.set(false)
         try { session?.close() } catch (_: Exception) {}
         session = null
         try { device?.close() } catch (_: Exception) {}
@@ -116,6 +150,59 @@ class CameraStreamer(
 
     private fun chooseSize(sizes: Array<Size>): Size {
         val sorted = sizes.sortedBy { it.width * it.height }
-        return sorted.firstOrNull { it.width in 480..1280 } ?: sorted.getOrElse(sorted.size / 2) { sizes[0] }
+        // Prefer ~640–960 wide for low latency over Wi-Fi
+        return sorted.firstOrNull { it.width in 480..960 && it.height in 360..720 }
+            ?: sorted.firstOrNull { it.width * it.height in 200_000..900_000 }
+            ?: sorted.getOrElse(sorted.size / 3) { sizes[0] }
+    }
+
+    /** NV21 from YUV_420_888 planes, then JPEG compress. */
+    private fun yuvToJpeg(image: Image, quality: Int): ByteArray? {
+        return try {
+            val width = image.width
+            val height = image.height
+            val yPlane = image.planes[0]
+            val uPlane = image.planes[1]
+            val vPlane = image.planes[2]
+            val yBuf = yPlane.buffer
+            val uBuf = uPlane.buffer
+            val vBuf = vPlane.buffer
+            val yRowStride = yPlane.rowStride
+            val yPix = yPlane.pixelStride
+            val uvRowStride = uPlane.rowStride
+            val uvPix = uPlane.pixelStride
+
+            val nv21 = ByteArray(width * height * 3 / 2)
+            // Y
+            var pos = 0
+            if (yPix == 1 && yRowStride == width) {
+                yBuf.get(nv21, 0, width * height)
+                pos = width * height
+            } else {
+                for (row in 0 until height) {
+                    val yRow = row * yRowStride
+                    for (col in 0 until width) {
+                        nv21[pos++] = yBuf.get(yRow + col * yPix)
+                    }
+                }
+            }
+            // UV as NV21 (VU interleaved)
+            val uvHeight = height / 2
+            val uvWidth = width / 2
+            for (row in 0 until uvHeight) {
+                for (col in 0 until uvWidth) {
+                    val uIdx = row * uvRowStride + col * uvPix
+                    val vIdx = row * vPlane.rowStride + col * vPlane.pixelStride
+                    nv21[pos++] = vBuf.get(vIdx)
+                    nv21[pos++] = uBuf.get(uIdx)
+                }
+            }
+            val out = ByteArrayOutputStream()
+            val yuv = YuvImage(nv21, ImageFormat.NV21, width, height, null)
+            if (!yuv.compressToJpeg(Rect(0, 0, width, height), quality, out)) return null
+            out.toByteArray()
+        } catch (_: Exception) {
+            null
+        }
     }
 }
