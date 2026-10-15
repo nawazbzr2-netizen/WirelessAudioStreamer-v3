@@ -10,17 +10,20 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - name: Assemble StreamingService and MainActivity
+      - name: Assemble sources from base64 parts
         run: |
           python3 << 'PY'
           import base64
           from pathlib import Path
-          ss_parts = sorted(Path("scripts/screen_b64").glob("ss_*.txt"), key=lambda p: int(p.stem.split("_")[1]))
-          ma_parts = sorted(Path("scripts/screen_b64").glob("ma_*.txt"), key=lambda p: int(p.stem.split("_")[1]))
-          ss = base64.b64decode("".join(p.read_text() for p in ss_parts)).decode()
-          ma = base64.b64decode("".join(p.read_text() for p in ma_parts)).decode()
-          assert "startScreenSend" in ss
-          assert "STREAM_SCREEN" in ss
+          ss = base64.b64decode(
+              Path("scripts/screen_b64/ss_a.b64").read_text().strip()
+              + Path("scripts/screen_b64/ss_b.b64").read_text().strip()
+          ).decode()
+          ma = base64.b64decode(
+              Path("scripts/screen_b64/ma_a.b64").read_text().strip()
+              + Path("scripts/screen_b64/ma_b.b64").read_text().strip()
+          ).decode()
+          assert "startScreenSend" in ss and "STREAM_SCREEN" in ss
           assert "btnScreenRecv" in ma
           Path("app/src/main/java/com/wireless/audiostreamer/service/StreamingService.kt").write_text(ss)
           Path("app/src/main/java/com/wireless/audiostreamer/ui/MainActivity.kt").write_text(ma)
