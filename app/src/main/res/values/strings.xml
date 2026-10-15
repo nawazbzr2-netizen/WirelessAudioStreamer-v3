@@ -110,6 +110,7 @@
     <string name="exit_fullscreen">Tap to exit full screen</string>
     <string name="mic_rec_sender_on">Recording sender mic…</string>
     <string name="mic_rec_sender_off">Sender mic recording saved</string>
+    <string name="btn_voice_record">Voice record (mic only)</string>
     <string name="btn_close_camera">Close camera</string>
     <string name="cam_waiting">Waiting for camera…</string>
 </resources>
