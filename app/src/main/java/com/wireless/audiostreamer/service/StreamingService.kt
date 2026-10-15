@@ -47,6 +47,7 @@ import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
+import java.net.SocketAddress
 import java.security.SecureRandom
 import kotlin.concurrent.thread
 
@@ -293,19 +294,29 @@ class StreamingService : Service() {
         return true
     }
 
+    private fun btAdapter(): BluetoothAdapter? = getSystemService(BluetoothManager::class.java)?.adapter
     private val btListener = object : BluetoothTransport.Listener {
-        override fun onConnected() { btConnected = true; publish(true, getString(R.string.status_connected, "Bluetooth"), false) }
-        override fun onDisconnected() { btConnected = false }
-        override fun onFrame(data: ByteArray) { handleFrame(data) }
+        override fun onState(connected: Boolean) { btConnected = connected }
+        override fun onFrame(buf: ByteArray, len: Int) { if (role == AppPrefs.ROLE_RECEIVER) handleFrame(buf, len, null) }
     }
 
-    private fun onCaptured(pcm: ByteArray) {
-        lastAudioMs = System.currentTimeMillis()
+    private fun peerReady(): Boolean = when {
+        mode == MODE_INTERNET -> true
+        mode == MODE_WIFI -> {
+            val d = discovery ?: return false
+            System.currentTimeMillis() - d.lastSeen(peerIp) < PEER_TIMEOUT_MS
+        }
+        else -> btConnected
+    }
+
+    private fun onCaptured(pcm: ShortArray) {
+        if (!active || !peerReady()) return
         val c = cipher ?: return
-        val frame = Protocol.buildAudio(c, session, seq++, channels, pcm)
+        lastAudioMs = System.currentTimeMillis()
+        val frame = c.seal(Protocol.T_AUDIO, session, seq++, Protocol.buildAudioPlain(pcm, channels))
         if (mode == MODE_WIFI || mode == MODE_INTERNET) {
-            val addr = peerAddr ?: return
-            udpOut?.send(frame, addr, Protocol.PORT_AUDIO)
+            val a = peerAddr ?: return
+            udpOut?.send(frame, frame.size, a, Protocol.PORT_AUDIO)
         } else bt?.send(frame)
     }
 
@@ -362,7 +373,11 @@ class StreamingService : Service() {
                                     if (n <= 0 || n > 2_000_000) break
                                     val buf = ByteArray(n)
                                     din.readFully(buf)
-                                    sendBroadcast(Intent("com.wireless.audiostreamer.CAMERA_FRAME").setPackage(packageName).putExtra("jpeg", buf))
+                                    sendBroadcast(
+                                        Intent("com.wireless.audiostreamer.CAMERA_FRAME")
+                                            .setPackage(packageName)
+                                            .putExtra("jpeg", buf)
+                                    )
                                 }
                             } catch (_: Exception) {
                             } finally {
@@ -382,7 +397,7 @@ class StreamingService : Service() {
         while (active) {
             var s: DatagramSocket? = null
             try {
-                s = DatagramSocket(null as java.net.SocketAddress?)
+                s = DatagramSocket(null as SocketAddress?)
                 s.reuseAddress = true
                 s.bind(InetSocketAddress(Protocol.PORT_AUDIO))
                 s.soTimeout = 1000
@@ -393,7 +408,7 @@ class StreamingService : Service() {
                         s.receive(p)
                         lastFrom = p.address.hostAddress ?: ""
                         lastFromIp = lastFrom
-                        handleFrame(p.data.copyOf(p.length))
+                        handleFrame(p.data, p.length, p.address)
                     } catch (_: java.net.SocketTimeoutException) {
                     } catch (_: Exception) { if (!active) break }
                 }
@@ -406,29 +421,29 @@ class StreamingService : Service() {
         }
     }
 
-    private fun handleFrame(data: ByteArray) {
+    private fun handleFrame(buf: ByteArray, len: Int, from: InetAddress?) {
         val c = cipher ?: return
-        val parsed = Protocol.parseAudio(c, data) ?: run {
-            authFail++
-            if (authFail > 20) stopEverything(getString(R.string.status_wrong_pin), true)
-            return
-        }
+        val o = c.open(buf, len) ?: run { authFail++; return }
+        if (o.type != Protocol.T_AUDIO) return
         authFail = 0
         lastAudioMs = System.currentTimeMillis()
-        if (parsed.session != curSession) {
-            curSession = parsed.session
-            rxChannels = parsed.channels
+        val audio = Protocol.parseAudioPlain(o.plain) ?: return
+        val jb = jitter ?: return
+        if (o.session != curSession || audio.channels != rxChannels) {
+            curSession = o.session
+            rxChannels = audio.channels
             player?.stop()
-            val jb = JitterBuffer(AppPrefs.targetFrames(this))
-            jitter = jb
-            val pl = LowLatencyPlayer(jb)
+            val nj = JitterBuffer(AppPrefs.targetFrames(this))
+            jitter = nj
+            val pl = LowLatencyPlayer(nj)
             player = pl
-            pl.start(parsed.channels.coerceIn(1, 2))
+            pl.start(audio.channels.coerceIn(1, 2))
         }
-        jitter?.offer(parsed.seq, parsed.pcm)
+        jb.add(o.seq, audio.pcm)
         if (!hadPeer) {
             hadPeer = true
-            publish(true, getString(R.string.status_connected, lastFrom.ifBlank { peerIp.ifBlank { "OK" } }), false)
+            val who = from?.hostAddress ?: lastFrom.ifBlank { peerIp.ifBlank { "OK" } }
+            publish(true, getString(R.string.status_connected, who), false)
         }
     }
 
@@ -436,7 +451,7 @@ class StreamingService : Service() {
         while (active) {
             var s: DatagramSocket? = null
             try {
-                s = DatagramSocket(null as java.net.SocketAddress?)
+                s = DatagramSocket(null as SocketAddress?)
                 s.reuseAddress = true
                 s.bind(InetSocketAddress(Protocol.PORT_CTRL))
                 s.soTimeout = 1000
@@ -446,8 +461,10 @@ class StreamingService : Service() {
                     try {
                         val p = DatagramPacket(buf, buf.size)
                         s.receive(p)
-                        val msg = String(p.data, 0, p.length, Charsets.UTF_8)
-                        handleCtrl(msg)
+                        val o = cipher?.open(p.data, p.length) ?: continue
+                        if (o.type != Protocol.T_CTRL) continue
+                        val cmd = String(o.plain, Charsets.UTF_8)
+                        handleCtrl(cmd)
                     } catch (_: java.net.SocketTimeoutException) {
                     } catch (_: Exception) { if (!active) break }
                 }
@@ -538,13 +555,6 @@ class StreamingService : Service() {
             while (active) {
                 try { Thread.sleep(1000) } catch (_: Exception) { break }
                 if (!active) break
-                val now = System.currentTimeMillis()
-                if (role == AppPrefs.ROLE_RECEIVER && hadPeer && lastAudioMs > 0 && now - lastAudioMs > AUDIO_TIMEOUT_MS) {
-                    // soft: keep waiting
-                }
-                if (role == AppPrefs.ROLE_SENDER && peerIp.isNotBlank() && mode == MODE_WIFI) {
-                    // keep discovery alive
-                }
             }
         }
     }
@@ -562,9 +572,6 @@ class StreamingService : Service() {
         sendBroadcast(i)
         updateNotification(text)
     }
-
-    private fun btAdapter(): BluetoothAdapter? =
-        getSystemService(BluetoothManager::class.java)?.adapter
 
     private fun acquireLocks() {
         try { wakeLock = getSystemService(PowerManager::class.java).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "was:wake").apply { acquire() } } catch (e: Exception) {}
