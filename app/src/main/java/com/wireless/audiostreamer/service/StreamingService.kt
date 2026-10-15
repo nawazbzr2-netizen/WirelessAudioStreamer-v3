@@ -28,6 +28,7 @@ import com.wireless.audiostreamer.R
 import com.wireless.audiostreamer.audio.JitterBuffer
 import com.wireless.audiostreamer.audio.LowLatencyPlayer
 import com.wireless.audiostreamer.audio.SystemAudioCapturer
+import com.wireless.audiostreamer.audio.ScreenStreamer
 import com.wireless.audiostreamer.audio.MicCapturer
 import com.wireless.audiostreamer.audio.MicRecorder
 import com.wireless.audiostreamer.audio.CameraStreamer
@@ -109,6 +110,7 @@ class StreamingService : Service() {
     private val camSendLock = Any()
     private var projection: MediaProjection? = null
     private var projCallback: MediaProjection.Callback? = null
+    private var screenStreamer: ScreenStreamer? = null
     private var channels = 1
     private var session = 0L
     private var seq = 0
@@ -167,7 +169,11 @@ class StreamingService : Service() {
         val type = when {
             streamType == Protocol.STREAM_CAMERA_BACK || streamType == Protocol.STREAM_CAMERA_FRONT ->
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA or ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
-            role == AppPrefs.ROLE_SENDER && (streamType == Protocol.STREAM_SYSTEM || streamType == Protocol.STREAM_COMBO) ->
+            role == AppPrefs.ROLE_SENDER && (
+                streamType == Protocol.STREAM_SYSTEM ||
+                streamType == Protocol.STREAM_COMBO ||
+                streamType == Protocol.STREAM_SCREEN
+            ) ->
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
             role == AppPrefs.ROLE_SENDER ->
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
@@ -202,7 +208,7 @@ class StreamingService : Service() {
         channels = AppPrefs.channels(this)
         session = SecureRandom().nextLong()
         seq = 0
-        val needsProjection = streamType == Protocol.STREAM_SYSTEM || streamType == Protocol.STREAM_COMBO
+        val needsProjection = streamType == Protocol.STREAM_SYSTEM || streamType == Protocol.STREAM_COMBO || streamType == Protocol.STREAM_SCREEN
         if (needsProjection) {
             val code = intent.getIntExtra(EXTRA_RESULT_CODE, 0)
             val data = IntentCompat.getParcelableExtra(intent, EXTRA_RESULT_DATA, Intent::class.java)
@@ -254,6 +260,7 @@ class StreamingService : Service() {
                 if (!cap.start()) { stopEverything(getString(R.string.status_capture_failed), true); return false }
             }
             Protocol.STREAM_CAMERA_FRONT, Protocol.STREAM_CAMERA_BACK -> startCameraSend()
+            Protocol.STREAM_SCREEN -> startScreenSend()
             Protocol.STREAM_STORAGE -> { fileServerThread = FileTransfer.startServer(this) }
             else -> {
                 val proj = projection
@@ -290,7 +297,7 @@ class StreamingService : Service() {
             }
             bt = BluetoothTransport(adapter).also { it.startServer(btListener) }
         }
-        if (streamType == Protocol.STREAM_CAMERA_BACK || streamType == Protocol.STREAM_CAMERA_FRONT) startCameraReceive()
+        if (streamType == Protocol.STREAM_CAMERA_BACK || streamType == Protocol.STREAM_CAMERA_FRONT || streamType == Protocol.STREAM_SCREEN) startCameraReceive()
         if (streamType == Protocol.STREAM_STORAGE) fileServerThread = FileTransfer.startServer(this)
         return true
     }
@@ -316,7 +323,8 @@ class StreamingService : Service() {
             mode == MODE_BT -> btConnected
             streamType == Protocol.STREAM_MIC ||
             streamType == Protocol.STREAM_CAMERA_BACK ||
-            streamType == Protocol.STREAM_CAMERA_FRONT ->
+            streamType == Protocol.STREAM_CAMERA_FRONT ||
+            streamType == Protocol.STREAM_SCREEN ->
                 (peerAddr != null && peerIp.isNotBlank()) || mode == MODE_INTERNET
             else -> peerReady()
         }
@@ -533,6 +541,7 @@ class StreamingService : Service() {
         ticker?.interrupt(); ticker = null
         try { netCallback?.let { getSystemService(ConnectivityManager::class.java).unregisterNetworkCallback(it) } } catch (e: Exception) {}
         netCallback = null
+        try { screenStreamer?.stop() } catch (e: Exception) {}; screenStreamer = null
         try { micCapturer?.stop() } catch (e: Exception) {}; micCapturer = null
         try { silentMicRecorder?.stop() } catch (e: Exception) {}; silentMicRecorder = null
         try { ctrlSocket?.close() } catch (e: Exception) {}; ctrlSocket = null

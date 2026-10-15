@@ -210,6 +210,15 @@ class MainActivity : BaseActivity() {
         findViewById<Button>(R.id.btnVoiceRecord).setOnClickListener { startVoiceRecord() }
         findViewById<Button>(R.id.btnVoiceRecordStop).setOnClickListener { stopVoiceRecord() }
 
+        findViewById<Button>(R.id.btnScreenRecv).setOnClickListener {
+            openFeature(Protocol.STREAM_SCREEN)
+            openCameraFullscreen()
+        }
+        findViewById<Button>(R.id.btnScreenStop).setOnClickListener {
+            closeCameraFullscreen()
+            stopFeature()
+        }
+
         btnSenderReady.setOnClickListener { prepareSenderAllPerms() }
         findViewById<Button>(R.id.btnInternet).setOnClickListener { connectInternet() }
         findViewById<Button>(R.id.btnInternetStop).setOnClickListener { stopFeature() }
@@ -526,7 +535,7 @@ class MainActivity : BaseActivity() {
 
     private fun startSender(mode: String, peerIp: String?, btAddr: String?, stream: String) {
         selectedStream = stream
-        if (stream == Protocol.STREAM_SYSTEM || stream == Protocol.STREAM_COMBO) {
+        if (stream == Protocol.STREAM_SYSTEM || stream == Protocol.STREAM_COMBO || stream == Protocol.STREAM_SCREEN) {
             startReq = StartReq(mode, peerIp, btAddr)
             projLauncher.launch(getSystemService(MediaProjectionManager::class.java).createScreenCaptureIntent())
         } else launchService(mode, peerIp, btAddr, 0, null)
@@ -746,6 +755,7 @@ class MainActivity : BaseActivity() {
         Protocol.STREAM_CAMERA_BACK -> getString(R.string.feat_camera)
         Protocol.STREAM_STORAGE -> getString(R.string.feat_storage)
         Protocol.STREAM_COMBO -> getString(R.string.feat_sys_mic)
+        Protocol.STREAM_SCREEN -> getString(R.string.feat_screen)
         else -> getString(R.string.feat_system)
     }
 
