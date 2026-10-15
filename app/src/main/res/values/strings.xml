@@ -108,4 +108,11 @@
     <string name="btn_start_recording">Start Recording</string>
     <string name="btn_stop_recording">Stop Recording</string>
     <string name="btn_sender_ready">I am Sender (ready)</string>
+    <string name="sender_ready_ok">Sender is ready</string>
+    <string name="receiver_only_features">Only the Receiver can open features</string>
+    <string name="role_swapped_to_receiver">This phone is now Receiver</string>
+    <string name="internet_host_required">Enter the other phone host or IP</string>
+    <string name="file_download">Download</string>
+    <string name="file_delete">Delete</string>
+    <string name="exit_fullscreen">Exit fullscreen</string>
 </resources>
