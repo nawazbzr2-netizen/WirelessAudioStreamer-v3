@@ -1,0 +1,21 @@
+name: Fix startScreenSend
+
+"on":
+  workflow_dispatch:
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Insert startScreenSend
+        run: python3 scripts/fix_start_screen_send.py
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/com/wireless/audiostreamer/service/StreamingService.kt
+          git commit -m "Add missing startScreenSend for screen cast" || echo nothing
+          git push origin HEAD:main
