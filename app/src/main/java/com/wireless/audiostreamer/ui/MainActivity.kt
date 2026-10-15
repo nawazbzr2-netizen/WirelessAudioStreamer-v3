@@ -74,6 +74,10 @@ class MainActivity : BaseActivity() {
     private var voiceRecorder: MicRecorder? = null
     private var videoWriter: ReceiverVideoWriter? = null
     private var senderPermsOk = false
+    @Volatile private var lastJpeg: ByteArray? = null
+    private var cameraOverlay: View? = null
+    private var imgCameraFull: ImageView? = null
+    private var btnCamRec: Button? = null
 
     private val ui = Handler(Looper.getMainLooper())
     private var discovery: DiscoveryHelper? = null
@@ -110,9 +114,14 @@ class MainActivity : BaseActivity() {
     private val cameraReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             val jpeg = intent?.getByteArrayExtra("jpeg") ?: return
+            lastJpeg = jpeg
             videoWriter?.writeJpeg(jpeg)
             val bmp = BitmapFactory.decodeByteArray(jpeg, 0, jpeg.size) ?: return
-            ui.post { imgCamera.visibility = View.VISIBLE; imgCamera.setImageBitmap(bmp) }
+            ui.post {
+                imgCameraFull?.setImageBitmap(bmp)
+                imgCamera.visibility = View.VISIBLE
+                imgCamera.setImageBitmap(bmp)
+            }
         }
     }
 
@@ -155,7 +164,12 @@ class MainActivity : BaseActivity() {
         seekVolume = findViewById(R.id.seekVolume)
         tvFeature = findViewById(R.id.tvFeature)
         imgCamera = findViewById(R.id.imgCamera)
-        imgCamera.setOnClickListener { FeatureUi.toggleFullscreen(this, imgCamera) }
+        cameraOverlay = findViewById(R.id.cameraOverlay)
+        imgCameraFull = findViewById(R.id.imgCameraFull)
+        btnCamRec = findViewById(R.id.btnCamRec)
+        findViewById<Button>(R.id.btnCamClose).setOnClickListener { closeCameraFullscreen() }
+        findViewById<Button>(R.id.btnCamShot).setOnClickListener { takePhoto() }
+        findViewById<Button>(R.id.btnCamRec).setOnClickListener { toggleVideoRecord() }
 
         findViewById<Button>(R.id.btnMicRecv).setOnClickListener { openFeature(Protocol.STREAM_MIC) }
         findViewById<Button>(R.id.btnMicStop).setOnClickListener { stopFeature() }
@@ -163,21 +177,19 @@ class MainActivity : BaseActivity() {
         findViewById<Button>(R.id.btnMicRecordStop).setOnClickListener { stopMicRecord() }
 
         findViewById<Button>(R.id.btnCamRecv).setOnClickListener {
-            openFeature(Protocol.STREAM_CAMERA_BACK); imgCamera.visibility = View.VISIBLE
+            openFeature(Protocol.STREAM_CAMERA_BACK)
+            openCameraFullscreen()
         }
-        findViewById<Button>(R.id.btnCamStop).setOnClickListener {
-            stopFeature(); imgCamera.visibility = View.GONE
-        }
+        findViewById<Button>(R.id.btnCamStop).setOnClickListener { closeCameraFullscreen() }
         findViewById<Button>(R.id.btnCamPhoto).setOnClickListener { takePhoto() }
-        findViewById<Button>(R.id.btnCamVideo).setOnClickListener { startVideoRecord() }
+        findViewById<Button>(R.id.btnCamVideo).setOnClickListener { toggleVideoRecord() }
         findViewById<Button>(R.id.btnCamVideoStop).setOnClickListener { stopVideoRecord() }
 
         findViewById<Button>(R.id.btnCamFrontRecv).setOnClickListener {
-            openFeature(Protocol.STREAM_CAMERA_FRONT); imgCamera.visibility = View.VISIBLE
+            openFeature(Protocol.STREAM_CAMERA_FRONT)
+            openCameraFullscreen()
         }
-        findViewById<Button>(R.id.btnCamFrontStop).setOnClickListener {
-            stopFeature(); imgCamera.visibility = View.GONE
-        }
+        findViewById<Button>(R.id.btnCamFrontStop).setOnClickListener { closeCameraFullscreen() }
 
         findViewById<Button>(R.id.btnStorageRecv).setOnClickListener {
             openFeature(Protocol.STREAM_STORAGE); openStorageBrowser()
@@ -406,6 +418,10 @@ class MainActivity : BaseActivity() {
     private fun stopDiscovery() { discovery?.stop(); discovery = null; peers = emptyList() }
 
     private fun stopFeature() {
+        if (videoWriter?.isRecording == true) {
+            try { videoWriter?.stop() } catch (_: Exception) {}
+            videoWriter = null
+        }
         val i = Intent(this, StreamingService::class.java).setAction(StreamingService.ACTION_STOP_FEATURE)
         try { startService(i) } catch (_: Exception) {
             stopService(Intent(this, StreamingService::class.java).setAction(StreamingService.ACTION_STOP))
@@ -414,6 +430,10 @@ class MainActivity : BaseActivity() {
         discovery?.setStream("")
         tvFeature.text = getString(R.string.feature_active, "—")
         FeatureUi.clearHighlight(this)
+        cameraOverlay?.visibility = View.GONE
+        imgCamera.visibility = View.GONE
+        lastJpeg = null
+        btnCamRec?.text = getString(R.string.btn_video)
     }
 
     private fun openFeature(stream: String) {
@@ -553,12 +573,33 @@ class MainActivity : BaseActivity() {
         if (path != null) Toast.makeText(this, getString(R.string.saved_ok, path), Toast.LENGTH_LONG).show()
     }
 
+    private fun openCameraFullscreen() {
+        cameraOverlay?.visibility = View.VISIBLE
+        imgCamera.visibility = View.VISIBLE
+        btnCamRec?.text = getString(R.string.btn_video)
+    }
+
+    private fun closeCameraFullscreen() {
+        if (videoWriter?.isRecording == true) stopVideoRecord()
+        cameraOverlay?.visibility = View.GONE
+        imgCamera.visibility = View.GONE
+        lastJpeg = null
+        stopFeature()
+        FeatureUi.clearHighlight(this)
+    }
+
+    private fun toggleVideoRecord() {
+        if (videoWriter?.isRecording == true) stopVideoRecord()
+        else startVideoRecord()
+    }
+
     private fun startVideoRecord() {
         if (videoWriter?.isRecording == true) return
         val w = ReceiverVideoWriter(this)
         val path = w.start()
         if (path != null) {
             videoWriter = w
+            btnCamRec?.text = getString(R.string.btn_stop_video)
             toast(R.string.recording)
         } else toast(R.string.status_capture_failed)
     }
@@ -566,17 +607,30 @@ class MainActivity : BaseActivity() {
     private fun stopVideoRecord() {
         val path = videoWriter?.stop()
         videoWriter = null
+        btnCamRec?.text = getString(R.string.btn_video)
         if (path != null) Toast.makeText(this, getString(R.string.saved_ok, path), Toast.LENGTH_LONG).show()
+        else toast(R.string.recording_stopped)
     }
 
     private fun takePhoto() {
-        imgCamera.isDrawingCacheEnabled = true; imgCamera.buildDrawingCache()
-        val bmp = try { imgCamera.drawingCache } catch (_: Exception) { null }
+        val jpeg = lastJpeg
+        if (jpeg != null && jpeg.isNotEmpty()) {
+            val path = MediaSaver.saveJpeg(this, jpeg)
+            if (path != null) {
+                Toast.makeText(this, getString(R.string.saved_ok, path), Toast.LENGTH_LONG).show()
+                return
+            }
+        }
+        val iv = imgCameraFull ?: imgCamera
+        iv.isDrawingCacheEnabled = true
+        iv.buildDrawingCache()
+        val bmp = try { iv.drawingCache } catch (_: Exception) { null }
         if (bmp != null) {
             val path = MediaSaver.saveBitmap(this, bmp)
             if (path != null) Toast.makeText(this, getString(R.string.saved_ok, path), Toast.LENGTH_LONG).show()
-        } else toast(R.string.cam_live)
-        imgCamera.isDrawingCacheEnabled = false
+            else toast(R.string.status_capture_failed)
+        } else toast(R.string.cam_waiting)
+        iv.isDrawingCacheEnabled = false
     }
 
     private fun openStorageBrowser() {
