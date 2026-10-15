@@ -1,6 +1,13 @@
 name: Restore core sources
+
 on:
   workflow_dispatch:
+    inputs:
+      reason:
+        description: "Why restore"
+        required: false
+        default: "fix empty StreamingService/MainActivity"
+
 jobs:
   restore:
     runs-on: ubuntu-latest
@@ -10,15 +17,21 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Restore StreamingService and MainActivity from good commit
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Restore files from good commit
         run: |
           git show 0269a1cb:app/src/main/java/com/wireless/audiostreamer/service/StreamingService.kt > app/src/main/java/com/wireless/audiostreamer/service/StreamingService.kt
           git show 0269a1cb:app/src/main/java/com/wireless/audiostreamer/ui/MainActivity.kt > app/src/main/java/com/wireless/audiostreamer/ui/MainActivity.kt
-      - name: Apply Mic and Camera patches to StreamingService
+          wc -c app/src/main/java/com/wireless/audiostreamer/service/StreamingService.kt
+          wc -c app/src/main/java/com/wireless/audiostreamer/ui/MainActivity.kt
+
+      - name: Patch StreamingService
         run: |
-          python3 << 'PY2'
+          python3 - <<'PY'
           from pathlib import Path
-          t = Path("app/src/main/java/com/wireless/audiostreamer/service/StreamingService.kt").read_text()
+          p = Path("app/src/main/java/com/wireless/audiostreamer/service/StreamingService.kt")
+          t = p.read_text()
           old = """    private fun onCaptured(pcm: ShortArray) {
         if (!active || !peerReady()) return
         val c = cipher ?: return
@@ -69,8 +82,7 @@ jobs:
         micCapturer = mic
         mic.start()
     }"""
-          if old not in t:
-              raise SystemExit("ss block1 not found")
+          assert old in t, "ss block1 missing"
           t = t.replace(old, new, 1)
           old2 = """        jb.put(o.seq, audio.pcm)
         lastAudioMs = System.currentTimeMillis()
@@ -88,43 +100,32 @@ jobs:
                     .putExtra("ch", audio.channels)
             )
         } catch (_: Exception) {}"""
-          if old2 not in t:
-              raise SystemExit("ss block2 not found")
+          assert old2 in t, "ss block2 missing"
           t = t.replace(old2, new2, 1)
-          Path("app/src/main/java/com/wireless/audiostreamer/service/StreamingService.kt").write_text(t)
-          print("StreamingService patched OK")
-          PY2
-      - name: Apply MainActivity patches
+          p.write_text(t)
+          print("StreamingService OK", len(t))
+          PY
+
+      - name: Patch MainActivity
         run: |
-          python3 << 'PY3'
+          python3 - <<'PY'
           from pathlib import Path
-          ma = Path("app/src/main/java/com/wireless/audiostreamer/ui/MainActivity.kt").read_text()
-          ma = ma.replace(
-              "import com.wireless.audiostreamer.audio.ReceiverVideoWriter",
-              "import com.wireless.audiostreamer.audio.ReceiverMp4Writer"
-          )
+          p = Path("app/src/main/java/com/wireless/audiostreamer/ui/MainActivity.kt")
+          ma = p.read_text()
+          ma = ma.replace("import com.wireless.audiostreamer.audio.ReceiverVideoWriter", "import com.wireless.audiostreamer.audio.ReceiverMp4Writer")
           ma = ma.replace(
               "private var videoWriter: ReceiverVideoWriter? = null",
-              """private var videoWriter: ReceiverMp4Writer? = null
-    private val audioPcmReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            val pcm = intent?.getShortArrayExtra("pcm") ?: return
-            val ch = intent.getIntExtra("ch", 1)
-            videoWriter?.writePcm(pcm, ch)
-        }
-    }"""
+              "private var videoWriter: ReceiverMp4Writer? = null\n    private val audioPcmReceiver = object : BroadcastReceiver() {\n        override fun onReceive(context: Context?, intent: Intent?) {\n            val pcm = intent?.getShortArrayExtra(\"pcm\") ?: return\n            val ch = intent.getIntExtra(\"ch\", 1)\n            videoWriter?.writePcm(pcm, ch)\n        }\n    }",
           )
           if "import android.content.BroadcastReceiver" not in ma:
               ma = ma.replace("import android.content.Context", "import android.content.BroadcastReceiver\nimport android.content.Context")
           ma = ma.replace(
               'ContextCompat.registerReceiver(this, cameraReceiver, IntentFilter("com.wireless.audiostreamer.CAMERA_FRAME"), ContextCompat.RECEIVER_NOT_EXPORTED)',
-              """ContextCompat.registerReceiver(this, cameraReceiver, IntentFilter("com.wireless.audiostreamer.CAMERA_FRAME"), ContextCompat.RECEIVER_NOT_EXPORTED)
-        ContextCompat.registerReceiver(this, audioPcmReceiver, IntentFilter("com.wireless.audiostreamer.AUDIO_PCM"), ContextCompat.RECEIVER_NOT_EXPORTED)"""
+              'ContextCompat.registerReceiver(this, cameraReceiver, IntentFilter("com.wireless.audiostreamer.CAMERA_FRAME"), ContextCompat.RECEIVER_NOT_EXPORTED)\n        ContextCompat.registerReceiver(this, audioPcmReceiver, IntentFilter("com.wireless.audiostreamer.AUDIO_PCM"), ContextCompat.RECEIVER_NOT_EXPORTED)',
           )
           ma = ma.replace(
               "try { unregisterReceiver(cameraReceiver) } catch (_: Exception) {}",
-              """try { unregisterReceiver(cameraReceiver) } catch (_: Exception) {}
-        try { unregisterReceiver(audioPcmReceiver) } catch (_: Exception) {}"""
+              "try { unregisterReceiver(cameraReceiver) } catch (_: Exception) {}\n        try { unregisterReceiver(audioPcmReceiver) } catch (_: Exception) {}",
           )
           old_btns = """        findViewById<Button>(R.id.btnCamRecv).setOnClickListener {
             openFeature(Protocol.STREAM_CAMERA_BACK)
@@ -153,15 +154,12 @@ jobs:
         }
         findViewById<Button>(R.id.btnCamFrontStop).setOnClickListener { closeCameraFullscreen() }
         findViewById<Button>(R.id.btnCamFrontRecord).setOnClickListener { toggleVideoRecord() }"""
-          if old_btns not in ma:
-              raise SystemExit("ma buttons block not found")
+          assert old_btns in ma, "ma buttons missing"
           ma = ma.replace(old_btns, new_btns, 1)
           ma = ma.replace("ReceiverVideoWriter(this)", "ReceiverMp4Writer(this)")
           ma = ma.replace(
               "btnCamRec?.text = getString(R.string.btn_stop_video)",
-              """btnCamRec?.text = getString(R.string.btn_stop_recording)
-            try { findViewById<Button>(R.id.btnCamVideoStop).text = getString(R.string.btn_stop_recording) } catch (_: Exception) {}
-            try { findViewById<Button>(R.id.btnCamFrontRecord).text = getString(R.string.btn_stop_recording) } catch (_: Exception) {}"""
+              "btnCamRec?.text = getString(R.string.btn_stop_recording)\n            try { findViewById<Button>(R.id.btnCamVideoStop).text = getString(R.string.btn_stop_recording) } catch (_: Exception) {}\n            try { findViewById<Button>(R.id.btnCamFrontRecord).text = getString(R.string.btn_stop_recording) } catch (_: Exception) {}",
           )
           ma = ma.replace(
               """    private fun openCameraFullscreen() {
@@ -175,22 +173,21 @@ jobs:
         btnCamRec?.text = getString(R.string.btn_start_recording)
         try { findViewById<Button>(R.id.btnCamVideoStop).text = getString(R.string.btn_start_recording) } catch (_: Exception) {}
         try { findViewById<Button>(R.id.btnCamFrontRecord).text = getString(R.string.btn_start_recording) } catch (_: Exception) {}
-    }"""
+    }""",
           )
           ma = ma.replace(
               "btnCamRec?.text = getString(R.string.btn_video)",
-              """btnCamRec?.text = getString(R.string.btn_start_recording)
-        try { findViewById<Button>(R.id.btnCamVideoStop).text = getString(R.string.btn_start_recording) } catch (_: Exception) {}
-        try { findViewById<Button>(R.id.btnCamFrontRecord).text = getString(R.string.btn_start_recording) } catch (_: Exception) {}"""
+              "btnCamRec?.text = getString(R.string.btn_start_recording)\n        try { findViewById<Button>(R.id.btnCamVideoStop).text = getString(R.string.btn_start_recording) } catch (_: Exception) {}\n        try { findViewById<Button>(R.id.btnCamFrontRecord).text = getString(R.string.btn_start_recording) } catch (_: Exception) {}",
           )
-          Path("app/src/main/java/com/wireless/audiostreamer/ui/MainActivity.kt").write_text(ma)
-          print("MainActivity patched OK")
-          PY3
+          p.write_text(ma)
+          print("MainActivity OK", len(ma))
+          PY
+
       - name: Commit and push
         run: |
           git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add app/src/main/java/com/wireless/audiostreamer/service/StreamingService.kt
-          git add app/src/main/java/com/wireless/audiostreamer/ui/MainActivity.kt
-          git commit -m "Restore StreamingService + MainActivity with Mic/Camera/MP4 fixes" || echo "no changes"
-          git push
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git status
+          git commit -m "Restore StreamingService + MainActivity (Mic/Camera/MP4 fixes)" || echo "nothing to commit"
+          git push origin main
