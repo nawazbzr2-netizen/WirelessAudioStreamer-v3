@@ -115,4 +115,5 @@
     <string name="file_download">Download</string>
     <string name="file_delete">Delete</string>
     <string name="exit_fullscreen">Exit fullscreen</string>
+    <string name="feat_screen">Screen cast (live)</string>
 </resources>
