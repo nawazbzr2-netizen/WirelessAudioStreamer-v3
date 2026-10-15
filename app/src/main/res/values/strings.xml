@@ -107,4 +107,5 @@
     <string name="cam_waiting">Waiting for camera…</string>
     <string name="btn_start_recording">Start Recording</string>
     <string name="btn_stop_recording">Stop Recording</string>
+    <string name="btn_sender_ready">I am Sender (ready)</string>
 </resources>
